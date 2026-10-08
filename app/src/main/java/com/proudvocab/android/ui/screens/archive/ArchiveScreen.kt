@@ -301,6 +301,15 @@ private fun WordRow(
     val formatter = remember { SimpleDateFormat("d MMM yyyy", Locale.US) }
     var tagDraft by remember(word.id) { mutableStateOf("") }
     var translationDraft by remember(word.id) { mutableStateOf(word.translation) }
+
+    // Debounced: writing to Room on every keystroke re-emitted the whole word
+    // list and re-measured it while the learner was still typing.
+    LaunchedEffect(translationDraft) {
+        if (translationDraft != word.translation) {
+            kotlinx.coroutines.delay(400)
+            onTranslationChange(translationDraft)
+        }
+    }
     val rotation by animateFloatAsState(if (expanded) 180f else 0f, spring(Spring.DampingRatioLowBouncy), label = "rot")
 
     Column(
@@ -367,10 +376,7 @@ private fun WordRow(
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = translationDraft,
-                    onValueChange = {
-                        translationDraft = it
-                        onTranslationChange(it)
-                    },
+                    onValueChange = { translationDraft = it },
                     label = { Text(stringResource(R.string.typography_word_translation)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),

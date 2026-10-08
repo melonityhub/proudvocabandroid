@@ -277,16 +277,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val subtitle = snapshot.lastSubtitleUri.takeIf { it.isNotBlank() }
             if (video == null && subtitle == null) return@launch
             val context: Context = getApplication()
-            if (video != null) {
+            // `snapshot()` suspends, and an "Open with ProudVocab" intent can
+            // have loaded a different file in the meantime — never overwrite it.
+            if (video != null && _uiState.value.videoUri == null) {
                 val uri = runCatching { Uri.parse(video) }.getOrNull()
                 if (uri != null && canRead(context, uri)) {
-                    openVideo(context, uri, rememberTitle = false)
+                    openVideo(context, uri, rememberTitle = false, autoPlay = false)
                 } else {
                     settings.update { s -> s.copy(lastVideoUri = "") }
                     _uiState.update { it.copy(message = "restore_video_failed") }
                 }
             }
-            if (subtitle != null) {
+            if (subtitle != null && _uiState.value.cues.isEmpty()) {
                 val uri = runCatching { Uri.parse(subtitle) }.getOrNull()
                 if (uri != null && canRead(context, uri)) {
                     loadSubtitle(context, uri)
@@ -302,7 +304,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         context.contentResolver.openInputStream(uri)?.use { true } ?: false
     }.getOrDefault(false)
 
-    fun openVideo(context: Context, uri: Uri, title: String? = null, rememberTitle: Boolean = true) {
+    fun openVideo(
+        context: Context,
+        uri: Uri,
+        title: String? = null,
+        rememberTitle: Boolean = true,
+        autoPlay: Boolean = true
+    ) {
         cancelLineTranslation()
         val p = playerOrNull ?: return
         _uiState.update {
@@ -323,7 +331,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         runCatching {
             p.setMediaItem(MediaItem.fromUri(uri))
             p.prepare()
-            p.playWhenReady = true
+            // Restoring the last file loads it ready to go but must not start
+            // blaring the moment the app is opened.
+            p.playWhenReady = autoPlay
         }.onFailure { error ->
             _uiState.update { it.copy(playbackError = describeError(error)) }
         }

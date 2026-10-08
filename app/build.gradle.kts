@@ -1,3 +1,5 @@
+import com.android.build.api.variant.FilterConfiguration
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -91,7 +93,8 @@ android {
     //   arm64-v8a    — every modern 64-bit phone/tablet (dominant ABI)
     //   armeabi-v7a  — older 32-bit ARM devices
     //   x86_64       — 64-bit Intel/AMD devices and emulators
-    // Distinct versionCodes per split are assigned right below.
+    // Distinct versionCodes per split are assigned in the androidComponents
+    // block below.
     // ---------------------------------------------------------------------
     splits {
         abi {
@@ -99,31 +102,6 @@ android {
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64")
             isUniversalApk = true
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // Unique versionCode per ABI split. Google Play requires every APK in
-    // a multi-APK release to have a distinct versionCode, and two APKs
-    // with the same code can never be installed side by side. The universal
-    // APK keeps the base versionCode; each per-ABI split gets
-    // base + rank*1000 so it is always newer than the universal APK and
-    // unique among the splits (armeabi-v7a +1000, arm64-v8a +2000,
-    // x86_64 +3000).
-    // ---------------------------------------------------------------------
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            val abi = output.getFilter(com.android.build.OutputFile.ABI)?.identifier
-            val rank = when (abi) {
-                "armeabi-v7a" -> 1
-                "arm64-v8a" -> 2
-                "x86_64" -> 3
-                else -> 0
-            }
-            if (rank > 0) {
-                output.versionCodeOverride =
-                    rank * 1000 + (defaultConfig.versionCode ?: 1)
-            }
         }
     }
 
@@ -158,6 +136,35 @@ android {
         warningsAsErrors = false
         checkReleaseBuilds = false
         disable += setOf("MissingTranslation", "ExtraTranslation", "GradleDependency", "OldTargetApi")
+    }
+}
+
+// ---------------------------------------------------------------------
+// Unique versionCode per ABI split. Google Play requires every APK in a
+// multi-APK release to have a distinct versionCode, and two APKs with
+// the same code can never be installed side by side. The universal APK
+// keeps the base versionCode; each per-ABI split gets base + rank*1000
+// so it is always newer than the universal APK and unique among the
+// splits (armeabi-v7a +1000, arm64-v8a +2000, x86_64 +3000).
+// ---------------------------------------------------------------------
+val baseVersionCode = android.defaultConfig.versionCode ?: 1
+
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val abi = output.filters
+                .find { it.filterType == FilterConfiguration.FilterType.ABI }
+                ?.identifier
+            val rank = when (abi) {
+                "armeabi-v7a" -> 1
+                "arm64-v8a" -> 2
+                "x86_64" -> 3
+                else -> 0
+            }
+            if (rank > 0) {
+                output.versionCode.set(rank * 1000 + baseVersionCode)
+            }
+        }
     }
 }
 

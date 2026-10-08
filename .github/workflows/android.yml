@@ -298,12 +298,32 @@ jobs:
                   safe = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
                   print(f'::error title={name}::{safe}')
                   print(f'- `{line}`')
-                  count += 1
-                  if count >= 30:
-                      break
-              if count >= 30:
+
+          # Deep-dive: when a KSP failure appears, print the task markers and
+          # stack trace around it plus the state of the exported schema files.
+          for name in ('build.log', 'test.log', 'lint.log'):
+              if not os.path.exists(name):
+                  continue
+              lines = open(name, encoding='utf-8', errors='replace').read().splitlines()
+              for i, line in enumerate(lines):
+                  if 'Empty schema file' not in line and '[ksp]' not in line:
+                      continue
+                  lo, hi = max(0, i - 80), min(len(lines), i + 80)
+                  heading = f'## {name}: KSP failure context (lines {lo + 1}-{hi})'
+                  if summary:
+                      with open(summary, 'a', encoding='utf-8') as out:
+                          out.write(heading + '\n')
+                  print(heading)
+                  block = '\n'.join(lines[lo:hi])
+                  safe = block.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print(f'::error title={name} ksp context::{safe}')
+                  print('```')
+                  print(block)
+                  print('```')
                   break
           PY
+
+          ls -la app/schemas/com.proudvocab.android.core.data.AppDatabase/ 2>/dev/null || echo 'no schema dir after build'
 
       - name: Upload debug APKs
         if: always() && steps.assemble.outcome == 'success'

@@ -126,7 +126,15 @@ line height, alignment and shadow. Changing one never touches another.
       verified, `testDebugUnitTest` and `lintDebug` both passing.
 - [x] A fresh clone builds with **no secrets**: the release build signs with
       the committed `keystore/release.keystore` unless `PV_KEYSTORE_*` is
-      supplied through the environment.
+      supplied through the environment. **This was untrue until 1.0.1** — see
+      §10: the path was resolved against `app/`, so every release was actually
+      signed with a per-runner debug key.
+- [x] Both workflows now *prove* the signature: `Verify the release APKs are
+      signed with the committed release key` compares the APK's signer
+      certificate (`apksigner`) with the certificate in
+      `keystore/release.keystore` (`keytool`) and fails on a mismatch. The
+      committed key's SHA-256 is
+      `6cb095491b6bb07201def57c5a1baeb4cb28ca8b1a717dba24a6f7c0a5c7ce0c`.
 - [x] `./gradlew` and `gradle/wrapper/gradle-wrapper.jar` are committed.
 - [x] Unit tests cover pure Kotlin behavior including `SrsScheduler`,
       `TextUtils` + `ColorCodec`, `SubtitleParser`, `GameEngine`, `DeckExporter`,
@@ -157,6 +165,41 @@ not by guessing. Each one is paired with the reason it broke.
 | **Games** | `blankOut` used `\b` without Unicode word semantics, so Persian headwords never matched their sentence and the game built no questions. | `Pattern.UNICODE_CHARACTER_CLASS`. |
 | **Locale** | `formatTime` and the slider labels used the *default* locale, so on a Persian device the "use Persian digits" switch did nothing. | Explicit `Locale.US` formatting. |
 | **Dictionary** | `state.entry!!` on a state delegate. | Captured in a local val. |
+| **Saved words** | Every keystroke in the word list wrote the row to Room. | Debounced to 400 ms after the last keystroke. |
+
+## 10. The 1.0.0 / 1.0.1 signing defect
+
+`app/build.gradle.kts` located the release key with
+`file("keystore/release.keystore")`. In a module build script `file(...)` is
+relative to the module directory, so Gradle looked for
+`app/keystore/release.keystore` — which does not exist. `repoKeystoreReady`
+was therefore always `false`, the `release` build type fell through to
+`signingConfigs.getByName("debug")`, and **every CI run signed the release
+APKs with a key generated on that runner**.
+
+The published evidence:
+
+| Release | signer certificate SHA-256 | key |
+|---|---|---|
+| v1.0.0 | `1aead9c9ebd6c1d7220ae6a10e9d39cb831994e21bd91617ee56d42c9a6dc4bb` | per-runner debug |
+| 1.0.1 (first build, unpublished) | `1baa57ab086cc9fba37c7a8d2916c3e3c4fb81716a30ef95600b03e8b2ef1480` | per-runner debug |
+| 1.0.1 (published) | `6cb095491b6bb07201def57c5a1baeb4cb28ca8b1a717dba24a6f7c0a5c7ce0c` | committed `keystore/release.keystore`, CN=ProudVocab Release |
+
+Consequence for anyone who installed a debug-signed build: Android refuses an
+update whose signature differs (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`), so
+1.0.0 → 1.0.1 needs an uninstall first. Export the deck (Settings → Data →
+Export) before uninstalling, then import it again. From 1.0.1 onwards the key
+is the committed one, so later releases install in place.
+
+Fixes:
+
+- Keystore and properties are resolved with `rootProject.file(...)`.
+- Missing keystore is a hard build error, not a warning — a release can no
+  longer be silently debug-signed.
+- `android.yml` and `release.yml` both compare the built APK's certificate
+  against `keystore/release.keystore` and fail if they differ. Verified green
+  on run 37842968182: committed key and APK signer both
+  `6cb095491b6bb07201def57c5a1baeb4cb28ca8b1a717dba24a6f7c0a5c7ce0c`.
 
 ## Manual / on-device checks still worth doing
 

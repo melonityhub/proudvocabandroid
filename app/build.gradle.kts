@@ -84,6 +84,25 @@ android {
         buildConfig = true
     }
 
+    // ---------------------------------------------------------------------
+    // ABI splits: one APK per popular CPU architecture plus a universal
+    // APK that covers all of them. The CI workflow builds and uploads all
+    // four release APKs (see .github/workflows/android.yml).
+    //   arm64-v8a    — every modern 64-bit phone/tablet (dominant ABI)
+    //   armeabi-v7a  — older 32-bit ARM devices
+    //   x86_64       — 64-bit Intel/AMD devices and emulators
+    // AGP stamps each split with its own versionCode automatically, so the
+    // per-ABI APKs never clash with each other or with the universal APK.
+    // ---------------------------------------------------------------------
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     packaging {
         resources {
             excludes += setOf(

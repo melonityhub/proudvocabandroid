@@ -157,6 +157,53 @@ jobs:
 
           echo 'All 4 release APKs verified: 3 per-architecture + 1 universal.'
 
+      - name: Verify the release APKs are signed with the committed release key
+        run: |
+          set -uo pipefail
+
+          apk="app/build/outputs/apk/release/app-arm64-v8a-release.apk"
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          apksigner="$(ls "$sdk_root"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -n 1 || true)"
+          echo "apksigner: ${apksigner:-<not found>}"
+          [ -f "$apk" ] || { echo "::error::$apk does not exist"; exit 1; }
+          [ -n "$apksigner" ] || { echo "::error::apksigner not found under $sdk_root"; exit 1; }
+
+          raw="$( "$apksigner" verify --print-certs "$apk" 2>&1 )" || echo "(apksigner exited non-zero)"
+          printf '%s\n' "$raw"
+          echo "::notice::apksigner on $(basename "$apk"): $(printf '%s' "$raw" | head -c 400 | tr '\n' '~')"
+
+          actual="$(printf '%s\n' "$raw" \
+            | grep -oE 'SHA-256 digest: [0-9a-fA-F:]+' | head -n1 \
+            | sed 's/.*digest: //' | tr -d ':' | tr 'A-F' 'a-f')"
+          echo "apk signer certificate: ${actual:-<none>}"
+
+          if [ -n "${PV_KEYSTORE_FILE:-}" ]; then
+            echo "::notice::Signed with the PV_KEYSTORE_* secret key (${actual:-unknown})."
+            exit 0
+          fi
+
+          store_pass="$(sed -n 's/^storePassword=//p' keystore/release.properties)"
+          key_alias="$(sed -n 's/^keyAlias=//p' keystore/release.properties)"
+          expected="$( keytool -list -v -keystore keystore/release.keystore -storetype PKCS12 \
+            -storepass "$store_pass" -alias "$key_alias" 2>&1 \
+            | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -n1 | tr -d ':' | tr 'A-F' 'a-f' )"
+          echo "committed key:          ${expected:-<unreadable>}"
+          echo "::notice::committed release key: ${expected:-<unreadable>} / apk signed by: ${actual:-<none>}"
+
+          if [ -z "$expected" ]; then
+            echo "::error::could not read the certificate from keystore/release.keystore (alias '$key_alias')"
+            exit 1
+          fi
+          if [ -z "$actual" ]; then
+            echo "::error::could not read the signing certificate of $apk"
+            exit 1
+          fi
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::$apk is signed with $actual but the repo ships $expected — it would not install over the previous release."
+            exit 1
+          fi
+          echo "::notice::Release APKs are signed with the committed stable key ($actual)."
+
       - name: Run unit tests
         id: test
         if: always()

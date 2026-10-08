@@ -138,16 +138,19 @@ object GameEngine {
 
     /** Replaces the word inside a sentence with a blank, keeping the case. */
     fun blankOut(sentence: String, word: String): String? {
-        // UNICODE_CHARACTER_CLASS: without it \b only recognises ASCII word
-        // characters, so a Persian headword never matched inside its own
+        // Pattern.UNICODE_CHARACTER_CLASS: without it \b only recognises ASCII
+        // word characters, so a Persian headword never matched inside its own
         // sentence and the game silently produced no questions.
-        val match = Regex(
-            "\\b" + Regex.escape(word) + "\\b",
-            setOf(RegexOption.IGNORE_CASE, RegexOption.UNICODE_CHARACTER_CLASS)
-        ).find(sentence) ?: return null
-        val range = match.range
-        return sentence.substring(0, range.first) + "____" +
-            sentence.substring(range.last + 1)
+        val matcher = java.util.regex.Pattern
+            .compile(
+                "\\b" + java.util.regex.Pattern.quote(word) + "\\b",
+                java.util.regex.Pattern.CASE_INSENSITIVE or
+                    java.util.regex.Pattern.UNICODE_CHARACTER_CLASS
+            )
+            .matcher(sentence)
+        if (!matcher.find()) return null
+        return sentence.substring(0, matcher.start()) + "____" +
+            sentence.substring(matcher.end())
     }
 
     fun scramble(word: String, random: Random = Random.Default): String {

@@ -60,7 +60,7 @@
     <string name="player_exit_fullscreen">Exit fullscreen</string>
     <string name="player_play">Play</string>
     <string name="player_pause">Pause</string>
-    <string name="player_speed">Playback speed %1$s×. Tap to change.</string>
+    <string name="player_speed_content_desc">Playback speed %1$s×. Tap to change.</string>
     <string name="player_seek">Seek video position</string>
     <string name="player_seek_back">Seek back five seconds</string>
     <string name="player_seek_forward">Seek forward five seconds</string>

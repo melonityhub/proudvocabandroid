@@ -60,7 +60,7 @@
     <string name="player_exit_fullscreen">خروج از تمام‌صفحه</string>
     <string name="player_play">پخش</string>
     <string name="player_pause">مکث</string>
-    <string name="player_speed">سرعت پخش %1$s×؛ برای تغییر لمس کن.</string>
+    <string name="player_speed_content_desc">سرعت پخش %1$s×؛ برای تغییر لمس کن.</string>
     <string name="player_seek">جابه‌جایی در ویدیو</string>
     <string name="player_seek_back">پنج ثانیه عقب</string>
     <string name="player_seek_forward">پنج ثانیه جلو</string>

@@ -663,7 +663,7 @@ private fun SpeedChip(speed: Float, onSpeedChange: (Float) -> Unit) {
     val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
     val index = speeds.indexOfFirst { kotlin.math.abs(it - speed) < 0.01f }
     val label = if (speed % 1f == 0f) speed.toInt().toString() else speed.toString()
-    val description = stringResource(R.string.player_speed, label)
+    val description = stringResource(R.string.player_speed_content_desc, label)
     Surface(
         modifier = Modifier
             .width(56.dp)

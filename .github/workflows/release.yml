@@ -275,6 +275,12 @@ jobs:
             if [ -n "$fingerprint" ]; then
               echo ""
               echo "Signed with the stable release key (\`${fingerprint}\`), so new releases install as in-place updates."
+              echo ""
+              echo "> **Updating from 1.0.0 or older?** Those builds were signed with a"
+              echo "> temporary per-runner key, so Android refuses to update them in place"
+              echo "> (\`INSTALL_FAILED_UPDATE_INCOMPATIBLE\`). Export the deck first"
+              echo "> (Settings → Data → Export), uninstall, install this APK, then import"
+              echo "> the file again. Releases from 1.0.1 on update normally."
             fi
             echo ""
             echo "**Which APK?**"

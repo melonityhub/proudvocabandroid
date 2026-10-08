@@ -89,7 +89,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             current.copy(accentHex = hex, dynamicColor = hex == null)
         }
     }
-    fun setAnimations(enabled: Boolean) = launch { settings.setAnimations(enabled) }
     fun setPersianDigits(enabled: Boolean) = launch { settings.update { it.copy(usePersianDigits = enabled) } }
 
     suspend fun setAppLanguage(code: String) {

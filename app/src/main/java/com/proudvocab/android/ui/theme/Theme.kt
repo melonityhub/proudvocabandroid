@@ -9,11 +9,9 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -21,9 +19,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalMotionDurationScale
 import com.proudvocab.android.core.settings.AppSettings
 import com.proudvocab.android.core.settings.StyleTarget
 import com.proudvocab.android.core.settings.TextAlignPref
@@ -151,18 +149,11 @@ fun ProudVocabTheme(
         AppTypography.withAppStyle(appText, appFamily, appColor, appBackground)
     }
 
-    val motionDurationScale = remember(settings.animationsEnabled) {
-        object : MotionDurationScale {
-            override val scaleFactor = if (settings.animationsEnabled) 1f else 0f
-        }
-    }
-    CompositionLocalProvider(LocalMotionDurationScale provides motionDurationScale) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = typography,
-            content = content
-        )
-    }
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = typography,
+        content = content
+    )
 }
 
 private fun Typography.withAppStyle(
@@ -190,8 +181,11 @@ private fun Typography.withAppStyle(
         fontSize = if (fontSize == TextUnit.Unspecified) fontSize else fontSize * scale,
         lineHeight = if (lineHeight == TextUnit.Unspecified) lineHeight
         else lineHeight * scale * lineHeightScale,
-        letterSpacing = if (letterSpacing == TextUnit.Unspecified) pref.letterSpacingSp.sp
-        else letterSpacing + pref.letterSpacingSp.sp,
+        letterSpacing = when {
+            letterSpacing == TextUnit.Unspecified -> pref.letterSpacingSp.sp
+            letterSpacing.type == TextUnitType.Sp -> (letterSpacing.value + pref.letterSpacingSp).sp
+            else -> letterSpacing
+        },
         color = color ?: this.color,
         background = background ?: this.background,
         textAlign = alignment,

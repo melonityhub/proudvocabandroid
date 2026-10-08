@@ -228,8 +228,6 @@
     <string name="settings_dynamic_color">Dynamic colour</string>
     <string name="settings_dynamic_color_desc">Use the colours of your wallpaper</string>
     <string name="settings_accent">Accent colour</string>
-    <string name="settings_animations">Animations</string>
-    <string name="settings_animations_desc">Reduce motion to save battery</string>
     <string name="settings_app_language">App language</string>
     <string name="language_system_default">System default</string>
     <string name="language_system_desc">Use the device language</string>

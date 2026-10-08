@@ -228,8 +228,6 @@
     <string name="settings_dynamic_color">رنگ پویا</string>
     <string name="settings_dynamic_color_desc">استفاده از رنگ تصویر زمینه</string>
     <string name="settings_accent">رنگ تأکیدی</string>
-    <string name="settings_animations">انیمیشن‌ها</string>
-    <string name="settings_animations_desc">برای صرفه‌جویی در باتری کمتر شود</string>
     <string name="settings_app_language">زبان برنامه</string>
     <string name="language_system_default">زبان دستگاه</string>
     <string name="language_system_desc">استفاده از زبان دستگاه</string>

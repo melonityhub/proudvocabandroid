@@ -111,16 +111,6 @@ fun AppearancePage(vm: SettingsViewModel, settings: AppSettings) {
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
                 )
                 SwitchPreference(
-                    title = stringResource(R.string.settings_animations),
-                    subtitle = stringResource(R.string.settings_animations_desc),
-                    checked = settings.animationsEnabled,
-                    onCheckedChange = vm::setAnimations
-                )
-                androidx.compose.material3.HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 18.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
-                )
-                SwitchPreference(
                     title = stringResource(R.string.settings_persian_digits),
                     subtitle = stringResource(R.string.settings_persian_digits_desc),
                     checked = settings.usePersianDigits,

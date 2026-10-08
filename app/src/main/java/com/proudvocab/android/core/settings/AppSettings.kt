@@ -31,7 +31,6 @@ data class AppSettings(
     val theme: String = ThemeMode.SYSTEM.key,
     val dynamicColor: Boolean = true,
     val accentHex: String? = null,
-    val animationsEnabled: Boolean = true,
     /** Empty string = follow the device language. */
     val appLanguage: String = "",
     val usePersianDigits: Boolean = true,

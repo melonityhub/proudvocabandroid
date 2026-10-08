@@ -17,8 +17,8 @@ android {
         applicationId = "com.proudvocab.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += setOf("en", "fa", "tr", "de", "fr", "es", "ar", "ru")

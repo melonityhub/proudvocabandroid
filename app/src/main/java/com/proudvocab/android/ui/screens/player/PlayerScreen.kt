@@ -62,7 +62,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -79,6 +83,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -90,6 +95,7 @@ import androidx.media3.ui.PlayerView
 import com.proudvocab.android.R
 import com.proudvocab.android.core.settings.AppSettings
 import com.proudvocab.android.core.settings.StyleTarget
+import com.proudvocab.android.core.subtitle.SubtitleCue
 import com.proudvocab.android.core.subtitle.SubtitleParser
 import com.proudvocab.android.ui.LocalDependencies
 import com.proudvocab.android.ui.components.CefrBadge
@@ -98,6 +104,7 @@ import com.proudvocab.android.ui.components.PrimaryButton
 import com.proudvocab.android.ui.screens.dictionary.WordLookupSheet
 import com.proudvocab.android.ui.theme.CefrColors
 import com.proudvocab.android.ui.theme.rememberTargetStyle
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @UnstableApi
@@ -116,8 +123,10 @@ fun PlayerScreen(
     val state by vm.uiState.collectAsStateWithLifecycle()
     val settings by deps.settings.settings.collectAsStateWithLifecycle(AppSettings())
     val scope = rememberCoroutineScope()
+    val shiftedCues by vm.shiftedCues.collectAsStateWithLifecycle()
 
     var showTranscript by remember { mutableStateOf(false) }
+    var banner by remember { mutableStateOf<String?>(null) }
 
     val videoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -143,6 +152,39 @@ fun PlayerScreen(
             }
             vm.loadSubtitle(context, it)
         }
+    }
+
+    // Bring back the video and subtitle from the previous session, and stop
+    // the audio the moment the player leaves the screen (tab switch, back) —
+    // the ViewModel outlives the composition, so nothing else would pause it.
+    DisposableEffect(vm) {
+        vm.restoreLastMedia()
+        onDispose { vm.pauseForLeave() }
+    }
+
+    // Same for leaving the app: ExoPlayer keeps decoding (and playing audio)
+    // after the activity stops unless something tells it not to.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) vm.pauseForLeave()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(state.message) {
+        val message = state.message ?: return@LaunchedEffect
+        banner = message
+        vm.consumeMessage()
+    }
+
+    // Separate effect: consuming the message above would otherwise cancel the
+    // very coroutine that is supposed to hide the banner again.
+    LaunchedEffect(banner) {
+        val current = banner ?: return@LaunchedEffect
+        delay(3000)
+        if (banner == current) banner = null
     }
 
     // "Open with ProudVocab" from another app. MIME type is authoritative;
@@ -270,11 +312,49 @@ fun PlayerScreen(
                 }
             }
         }
+
+        // A playback failure used to be completely silent: the learner picked a
+        // file, the surface stayed black and nothing explained why.
+        state.playbackError?.let { reason ->
+            PlaybackErrorCard(
+                reason = reason,
+                onRetry = vm::retryPlayback,
+                onPickAnother = { videoPicker.launch(arrayOf("video/*")) },
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 28.dp)
+            )
+        }
+
+        banner?.let { key ->
+            val text = when (key) {
+                "restore_video_failed" -> stringResource(R.string.player_restore_failed)
+                "restore_subtitle_failed" -> stringResource(R.string.player_subtitle_restore_failed)
+                else -> key
+            }
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = if (fullscreen) 16.dp else 44.dp)
+                    .padding(horizontal = 12.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.errorContainer,
+                shadowElevation = 4.dp
+            ) {
+                Text(
+                    text = text,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
+        }
     }
 
     if (showTranscript) {
         TranscriptSheet(
             state = state,
+            cues = shiftedCues,
             settings = settings,
             onCueClick = { index -> vm.seekToCue(index) },
             onPreviousCue = vm::previousCue,
@@ -305,7 +385,7 @@ private fun VideoSurface(vm: PlayerViewModel, modifier: Modifier = Modifier) {
         modifier = modifier.background(Color.Black),
         factory = { context ->
             PlayerView(context).apply {
-                player = vm.player
+                player = vm.playerOrNull
                 useController = false
                 setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
                 setBackgroundColor(android.graphics.Color.BLACK)
@@ -313,8 +393,9 @@ private fun VideoSurface(vm: PlayerViewModel, modifier: Modifier = Modifier) {
             }
         },
         update = { view ->
-            if (view.player !== vm.player) view.player = vm.player
-            view.keepScreenOn = vm.player.isPlaying
+            val current = vm.playerOrNull
+            if (view.player !== current) view.player = current
+            view.keepScreenOn = current?.isPlaying == true
         }
     )
 }
@@ -662,6 +743,56 @@ private fun PlayerControls(
 }
 
 @Composable
+private fun PlaybackErrorCard(
+    reason: String,
+    onRetry: () -> Unit,
+    onPickAnother: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
+        shadowElevation = 6.dp
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = stringResource(R.string.player_error_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.player_error_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.player_error_reason, reason),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PrimaryButton(
+                    text = stringResource(R.string.player_error_retry),
+                    onClick = onRetry,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onPickAnother, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.player_error_choose))
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SpeedChip(speed: Float, onSpeedChange: (Float) -> Unit) {
     val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
     val index = speeds.indexOfFirst { kotlin.math.abs(it - speed) < 0.01f }
@@ -719,6 +850,7 @@ private fun ControlChip(
 @Composable
 private fun TranscriptSheet(
     state: PlayerUiState,
+    cues: List<SubtitleCue>,
     settings: AppSettings,
     onCueClick: (Int) -> Unit,
     onPreviousCue: () -> Unit,
@@ -763,7 +895,7 @@ private fun TranscriptSheet(
                     }
                     TextButton(
                         onClick = onNextCue,
-                        enabled = state.activeIndex < state.shiftedCues.lastIndex
+                        enabled = state.activeIndex < cues.lastIndex
                     ) {
                         Text(stringResource(R.string.player_next_line))
                     }
@@ -781,7 +913,7 @@ private fun TranscriptSheet(
                         .fillMaxSize()
                         .navigationBarsPadding()
                 ) {
-                    itemsIndexed(state.shiftedCues, key = { _, cue -> cue.index }) { index, cue ->
+                    itemsIndexed(cues, key = { _, cue -> cue.index }) { index, cue ->
                         val isActive = index == state.activeIndex
                         val background by androidx.compose.animation.animateColorAsState(
                             targetValue = if (isActive) {

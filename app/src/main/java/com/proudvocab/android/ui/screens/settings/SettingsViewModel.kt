@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.proudvocab.android.ProudVocabApplication
 import com.proudvocab.android.core.export.DeckExporter
 import com.proudvocab.android.core.settings.AppSettings
+import com.proudvocab.android.core.settings.FontKeys
 import com.proudvocab.android.core.settings.StyleTarget
 import com.proudvocab.android.core.settings.TextAlignPref
 import com.proudvocab.android.core.settings.TextStylePref
@@ -15,11 +16,13 @@ import com.proudvocab.android.core.settings.ThemeMode
 import com.proudvocab.android.core.settings.TranslationEngine
 import com.proudvocab.android.core.translate.ModelState
 import com.proudvocab.android.core.util.LocaleStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class SettingsPage {
     ROOT, APPEARANCE, TYPOGRAPHY, SUBTITLES, LANGUAGES,
@@ -133,10 +136,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun deleteFont(key: String) = launch {
+        // The key still carries its "file:" prefix here; build the option from
+        // it directly so `deleteFont` can strip the prefix exactly once.
+        val normalised = if (FontKeys.isCustom(key)) key else FontKeys.CUSTOM_PREFIX + key
         app.fonts.deleteFont(
             com.proudvocab.android.ui.theme.FontOption(
-                key,
-                com.proudvocab.android.core.settings.FontKeys.customName(key),
+                normalised,
+                FontKeys.customName(normalised),
                 com.proudvocab.android.ui.theme.FontGroup.CUSTOM
             )
         )
@@ -296,7 +302,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun exportJson(onReady: (Intent?) -> Unit) {
         viewModelScope.launch {
             val words = app.vocabRepository.allWords()
-            val file = writeExport("proudvocab-words.json", DeckExporter.toJson(words))
+            val file = withContext(Dispatchers.IO) {
+                writeExport("proudvocab-words.json", DeckExporter.toJson(words))
+            }
             onReady(file?.let { shareIntent(it, "application/json") })
         }
     }
@@ -304,7 +312,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun exportAnki(onReady: (Intent?) -> Unit) {
         viewModelScope.launch {
             val words = app.vocabRepository.allWords()
-            val file = writeExport("proudvocab-anki.csv", DeckExporter.toAnkiCsv(words))
+            val file = withContext(Dispatchers.IO) {
+                writeExport("proudvocab-anki.csv", DeckExporter.toAnkiCsv(words))
+            }
             onReady(file?.let { shareIntent(it, "text/csv") })
         }
     }
@@ -312,9 +322,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun importJson(uri: Uri, onDone: (Int) -> Unit) {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val text = runCatching {
-                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-            }.getOrNull()
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                }.getOrNull()
+            }
             val words = DeckExporter.fromJson(text.orEmpty())
             if (words.isEmpty()) {
                 onDone(0)

@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.xmlpull.v1.XmlPullParser
@@ -33,7 +34,9 @@ class FontRepository(private val context: Context) {
     val fontsDir: File
         get() = File(context.filesDir, "fonts").also { it.mkdirs() }
 
-    private val cache = HashMap<String, FontFamily>()
+    // Read from the composition thread and written from the font import
+    // coroutine, so it has to be a concurrent map.
+    private val cache = ConcurrentHashMap<String, FontFamily>()
 
     fun builtIns(): List<FontOption> = listOf(
         FontOption(com.proudvocab.android.core.settings.FontKeys.SYSTEM, "system", FontGroup.BUILTIN),
@@ -90,6 +93,14 @@ class FontRepository(private val context: Context) {
         } ?: emptyList()
 
     fun all(): List<FontOption> = builtIns() + deviceFonts() + importedFonts()
+
+    /**
+     * [all] reads `/system/etc/fonts.xml` and lists the imported-font folder,
+     * which is disk I/O and must not run on the UI thread.
+     */
+    suspend fun allAsync(): List<FontOption> = withContext(Dispatchers.IO) {
+        runCatching { all() }.getOrDefault(builtIns())
+    }
 
     fun displayNameOf(fileName: String): String =
         fileName.substringBeforeLast('.').replace('_', ' ').replace('-', ' ')

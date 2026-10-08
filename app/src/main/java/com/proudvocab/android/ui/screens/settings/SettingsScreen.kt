@@ -38,7 +38,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -49,9 +51,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.proudvocab.android.R
 import com.proudvocab.android.core.settings.AppSettings
 import com.proudvocab.android.ui.LocalDependencies
+import com.proudvocab.android.ui.components.MessageBanner
+import com.proudvocab.android.ui.components.MessageTone
 import com.proudvocab.android.ui.components.PreferenceRow
 import com.proudvocab.android.ui.components.SectionHeader
 import com.proudvocab.android.ui.components.SettingsCard
+import com.proudvocab.android.ui.components.isErrorKey
+import com.proudvocab.android.ui.components.messageFor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +68,14 @@ fun SettingsScreen() {
     val settings by deps.settings.settings.collectAsStateWithLifecycle(AppSettings())
 
     BackHandler(enabled = state.page != SettingsPage.ROOT) { vm.back() }
+
+    // Every import/reset in here answers through `state.message`; without a
+    // banner those confirmations were simply never shown.
+    LaunchedEffect(state.message) {
+        if (state.message == null) return@LaunchedEffect
+        kotlinx.coroutines.delay(2500)
+        vm.showMessage(null)
+    }
 
     Scaffold(
         topBar = {
@@ -112,6 +126,7 @@ fun SettingsScreen() {
             ) { page ->
                 when (page) {
                     SettingsPage.ROOT -> RootPage(vm, settings)
+                    // (banner is drawn on top of the animated page below)
                     SettingsPage.APPEARANCE -> AppearancePage(vm, settings)
                     SettingsPage.TYPOGRAPHY -> TypographyPage(vm, settings)
                     SettingsPage.SUBTITLES -> SubtitlesPage(vm, settings)
@@ -124,6 +139,17 @@ fun SettingsScreen() {
                     SettingsPage.PERMISSIONS -> PermissionsPage()
                     SettingsPage.ABOUT -> AboutPage()
                 }
+            }
+
+            val bannerText = messageFor(state.message)
+            if (bannerText != null) {
+                MessageBanner(
+                    text = bannerText,
+                    tone = if (isErrorKey(state.message)) MessageTone.ERROR else MessageTone.INFO,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 20.dp, vertical = 26.dp)
+                )
             }
         }
     }

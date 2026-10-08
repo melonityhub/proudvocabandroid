@@ -245,6 +245,18 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
+    /**
+     * Counts a miss without revealing the answer.
+     *
+     * The matching game needs this: `answer("")` used to set
+     * `lastAnswerCorrect = false`, which popped the "the correct answer was…"
+     * panel with a Next button that skipped the rest of the round.
+     */
+    fun recordMiss() {
+        val state = _uiState.value
+        _uiState.value = state.copy(gameWrong = state.gameWrong + 1)
+    }
+
     fun nextQuestion() {
         val state = _uiState.value
         val next = state.gameIndex + 1

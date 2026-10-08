@@ -36,8 +36,12 @@ class ProudVocabApplication : Application() {
         translation = TranslationManager(this, settings, dictionary)
         fonts = FontRepository(this)
 
-        // Warm the offline dictionary up in the background so the first
-        // lookup is instant.
-        appScope.launch(Dispatchers.IO) { dictionary.open() }
+        // Warm the offline dictionary and the shipped word tables up in the
+        // background, so neither the first lookup nor the first subtitle line
+        // has to read and parse them on the UI thread.
+        appScope.launch(Dispatchers.IO) {
+            dictionary.open()
+            dictionary.preload()
+        }
     }
 }

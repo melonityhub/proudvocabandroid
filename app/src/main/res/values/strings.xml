@@ -79,6 +79,19 @@
     <string name="player_grant">Grant</string>
     <string name="player_loading_subtitle">Reading subtitle…</string>
     <string name="player_subtitle_failed">Could not read that subtitle file</string>
+    <string name="player_error_title">This video cannot be played</string>
+    <string name="player_error_body">Android refused to open or decode this file. The container or codec may be unsupported, the file may be damaged, or the app may have lost access to it.</string>
+    <string name="player_error_reason">Reason: %1$s</string>
+    <string name="player_error_retry">Try again</string>
+    <string name="player_error_choose">Choose another video</string>
+    <string name="player_restore_failed">The last video could not be opened again — pick it once more.</string>
+    <string name="player_subtitle_restore_failed">The last subtitle could not be opened again — pick it once more.</string>
+
+    <string name="settings_font_ok">Font added</string>
+    <string name="settings_font_fail">That file is not a usable font</string>
+    <string name="settings_dictionary_ok">Dictionary imported</string>
+    <string name="settings_dictionary_fail">That file is not a FastDic dictionary</string>
+    <string name="archive_imported_ok">Backup imported</string>
 
     <!-- ============================ Dictionary ============================ -->
     <string name="dict_search_hint">Search a word…</string>
@@ -198,7 +211,9 @@
     <string name="archive_import_json">Import JSON</string>
     <string name="archive_empty_title">No saved words</string>
     <string name="archive_empty_body">Tap any word while watching a video to add it to your list.</string>
-    <string name="archive_count">%1$d words</string>
+    <!-- %1$s, not %1$d: the count arrives pre-formatted (Persian digits when the
+         learner has them on), so it is always a string. -->
+    <string name="archive_count">%1$s words</string>
     <string name="archive_add_tag">Add tag</string>
     <string name="archive_delete_confirm_title">Delete this word?</string>
     <string name="archive_delete_confirm_body">“%1$s” will be removed from your list.</string>

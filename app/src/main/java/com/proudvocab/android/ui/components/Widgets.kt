@@ -64,12 +64,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.proudvocab.android.R
 import com.proudvocab.android.core.util.ColorCodec
 import com.proudvocab.android.ui.theme.CefrColors
 
@@ -238,7 +240,7 @@ fun SliderPreference(
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
     steps: Int = 0,
-    display: String = "%.2f".format(value)
+    display: String = String.format(java.util.Locale.US, "%.2f", value)
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -613,3 +615,62 @@ fun GhostButton(
         Text(text, fontWeight = FontWeight.SemiBold)
     }
 }
+
+/**
+ * Small confirmation strip used by the settings, archive and player screens.
+ *
+ * Every "import / reset / export" action in the app answers with this instead
+ * of staying silent — a silent success is indistinguishable from a crash.
+ */
+@Composable
+fun MessageBanner(
+    text: String,
+    modifier: Modifier = Modifier,
+    tone: MessageTone = MessageTone.INFO
+) {
+    val scheme = MaterialTheme.colorScheme
+    val container = when (tone) {
+        MessageTone.INFO -> scheme.inverseSurface
+        MessageTone.ERROR -> scheme.errorContainer
+    }
+    val content = when (tone) {
+        MessageTone.INFO -> scheme.inverseOnSurface
+        MessageTone.ERROR -> scheme.onErrorContainer
+    }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = container.copy(alpha = 0.97f),
+        shadowElevation = 4.dp
+    ) {
+        Text(
+            text = text,
+            color = content,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
+    }
+}
+
+enum class MessageTone { INFO, ERROR }
+
+/** Maps a short state key to a translated message; null hides the banner. */
+@Composable
+fun messageFor(key: String?): String? = when (key) {
+    null, "" -> null
+    "font_ok" -> stringResource(R.string.settings_font_ok)
+    "font_fail" -> stringResource(R.string.settings_font_fail)
+    "dictionary_ok" -> stringResource(R.string.settings_dictionary_ok)
+    "dictionary_fail" -> stringResource(R.string.settings_dictionary_fail)
+    "imported" -> stringResource(R.string.archive_imported_ok)
+    "read_error", "parse_error" -> stringResource(R.string.archive_import_failed)
+    "restore_video_failed" -> stringResource(R.string.player_restore_failed)
+    "restore_subtitle_failed" -> stringResource(R.string.player_subtitle_restore_failed)
+    else -> key
+}
+
+/** Is this key an error rather than a plain confirmation? */
+fun isErrorKey(key: String?): Boolean = key in setOf(
+    "font_fail", "dictionary_fail", "read_error", "parse_error",
+    "restore_video_failed", "restore_subtitle_failed"
+)

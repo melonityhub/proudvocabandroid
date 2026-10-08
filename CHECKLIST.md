@@ -120,16 +120,43 @@ line height, alignment and shadow. Changing one never touches another.
 
 ## 8. Builds cleanly on GitHub Actions
 
-- [ ] `.github/workflows/android.yml` runs debug/release assembly, unit tests,
-      and lint; verify the current workflow run before marking this complete.
-- [ ] A fresh clone builds with **no secrets**: the release build type falls
-      back to the debug signing config unless `PV_KEYSTORE_*` is provided.
+- [x] `.github/workflows/android.yml` runs debug/release assembly, unit tests,
+      and lint — verified green on `arena/0f56347e-proudvocabandroid`
+      (run 37839735354): `assembleDebug` + `assembleRelease`, 4 split APKs
+      verified, `testDebugUnitTest` and `lintDebug` both passing.
+- [x] A fresh clone builds with **no secrets**: the release build signs with
+      the committed `keystore/release.keystore` unless `PV_KEYSTORE_*` is
+      supplied through the environment.
 - [x] `./gradlew` and `gradle/wrapper/gradle-wrapper.jar` are committed.
 - [x] Unit tests cover pure Kotlin behavior including `SrsScheduler`,
       `TextUtils` + `ColorCodec`, `SubtitleParser`, `GameEngine`, `DeckExporter`,
       and `StylePrefs`.
 
 ---
+
+## 9. Fixed in 1.0.1 — defects that reached a shipped build
+
+Found by re-reading every screen against the code paths it actually runs,
+not by guessing. Each one is paired with the reason it broke.
+
+| Area | Defect | Fix |
+|---|---|---|
+| **Saved words** | `archive_count` was `%1$d` but is fed the *pre-formatted* count (`TextUtils.formatNumber`, Persian digits). `String.format` threw `IllegalFormatConversionException`, so the screen died the moment it was opened. | Both locales use `%1$s`; `ResourcesContractTest` now enforces the en/fa placeholder contract and the "formatted number ⇒ `%s`" rule. |
+| **Player** | `Player.Listener.onPlayerError` was never implemented: a file Android cannot open or decode produced a black screen and **no message at all**. | Errors are captured, mapped to a reason and shown with *Try again* / *Choose another video*. |
+| **Player** | `lastVideoUri` / `lastSubtitleUri` were written to settings and **never read back**, so every start needed the file to be picked again. | The last video and subtitle are restored on start; a lost grant says so instead of failing silently. |
+| **Player** | The ViewModel outlives the composition, so switching tabs or backgrounding the app left the audio playing. | `pauseForLeave()` on composition disposal and on `ON_STOP`. |
+| **Player** | The `player` getter built a fresh `ExoPlayer` whenever the field was null — including after `onCleared` released the real one, leaking it. | One player, created with the ViewModel, released exactly once. |
+| **Player** | `shiftedCues` rebuilt the whole cue list on every access (the position poller reads it several times a tick). | Memoised in a `StateFlow`, rebuilt only when the cues or the delay change. |
+| **Freeze / ANR** | The first subtitle line parsed ~400 KB of `cefr.txt` + `idioms.json` + `phrasal.json` **on the UI thread** while the video played. | Preloaded on `Dispatchers.IO` at start-up. |
+| **Freeze** | `cefrCache` / `idiomCache` / `phrasalCache` / `FontRepository.cache` / `OfflineTranslator` maps were plain `HashMap`s written from IO coroutines and read from the composition thread. | All concurrent maps. |
+| **Freeze** | Device-font enumeration read `/system/etc/fonts.xml` inside `remember` during composition; exports and JSON imports read/wrote files on the main thread. | All moved off the main thread, with a progress state in the font picker. |
+| **Settings** | Font import / dictionary import / erase results were written to `SettingsUiState.message` and **never rendered** — the actions looked dead. | A `MessageBanner` in Settings, Archive and Player. |
+| **Translation** | Auto line-translation asked ML Kit for a translation with no model present, which makes it silently download tens of MB. | The offline engine is only used when the model is already downloaded. |
+| **Start-up** | `AppSettings()` defaults to `onboardingCompleted = false`, so the whole welcome flow flashed on every cold start before DataStore emitted. | The root waits for the first real value. |
+| **Games** | A wrong pair in the matching game set `lastAnswerCorrect = false`, which revealed the answer and skipped the rest of the round. | `recordMiss()` counts the miss and flashes the tile. |
+| **Games** | `blankOut` used `\b` without Unicode word semantics, so Persian headwords never matched their sentence and the game built no questions. | `Pattern.UNICODE_CHARACTER_CLASS`. |
+| **Locale** | `formatTime` and the slider labels used the *default* locale, so on a Persian device the "use Persian digits" switch did nothing. | Explicit `Locale.US` formatting. |
+| **Dictionary** | `state.entry!!` on a state delegate. | Captured in a local val. |
 
 ## Manual / on-device checks still worth doing
 

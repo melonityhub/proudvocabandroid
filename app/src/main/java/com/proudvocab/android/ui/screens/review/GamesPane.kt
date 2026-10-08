@@ -280,6 +280,14 @@ private fun GameRunner(
     var typed by remember(question) { mutableStateOf("") }
     var selectedWord by remember(question) { mutableStateOf<String?>(null) }
     var matched by remember(question) { mutableStateOf(setOf<String>()) }
+    var wrongFlash by remember(question) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(wrongFlash) {
+        if (wrongFlash != null) {
+            kotlinx.coroutines.delay(450)
+            wrongFlash = null
+        }
+    }
 
     LaunchedEffect(question, settings.gameAutoPronounce) {
         if (question != null && settings.gameAutoPronounce &&
@@ -486,15 +494,20 @@ private fun GameRunner(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 3.dp),
-                                    color = if (isMatched) Color(0xFF22C55E)
-                                    else MaterialTheme.colorScheme.secondary,
+                                    color = when {
+                                        isMatched -> Color(0xFF22C55E)
+                                        wrongFlash == pair.word -> Color(0xFFEF4444)
+                                        else -> MaterialTheme.colorScheme.secondary
+                                    },
                                     onClick = {
                                         if (selectedWord == pair.word) {
                                             vm.answer(pair.word)
                                             matched = matched + pair.word
                                             selectedWord = null
                                         } else {
-                                            vm.answer("")
+                                            vm.recordMiss()
+                                            selectedWord = null
+                                            wrongFlash = pair.word
                                         }
                                     }
                                 )

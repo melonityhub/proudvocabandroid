@@ -7,6 +7,7 @@ import java.io.FileOutputStream
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,10 +34,15 @@ class DictionaryManager(private val context: Context) {
     private var database: FastdicDatabase? = null
     private var openedPath: String? = null
 
-    private val cefrCache = HashMap<String, String>()
+    // Concurrent maps on purpose: the CEFR list is read from the composition
+    // thread (subtitle chips) while lookups read the idiom tables from IO
+    // coroutines. A plain HashMap under that race can spin forever inside a
+    // resize, which shows up to the user as a frozen player.
+    private val cefrCache = ConcurrentHashMap<String, String>()
+    @Volatile
     private var cefrLoaded = false
-    private val idiomCache = HashMap<String, Map<String, String>>()
-    private val phrasalCache = HashMap<String, Map<String, String>>()
+    private val idiomCache = ConcurrentHashMap<String, Map<String, String>>()
+    private val phrasalCache = ConcurrentHashMap<String, Map<String, String>>()
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -150,6 +156,25 @@ class DictionaryManager(private val context: Context) {
                 }
             }
             cefrLoaded = true
+        }
+    }
+
+    /**
+     * Reads the three shipped tables (CEFR levels, idioms, phrasal verbs) once,
+     * off the main thread.
+     *
+     * Without this the *first* subtitle line pays for parsing ~400 KB of JSON
+     * and text on the UI thread while the video is playing — long enough to
+     * trip the ANR watchdog on a mid-range phone. [com.proudvocab.android.ProudVocabApplication]
+     * calls it at start-up.
+     */
+    suspend fun preload(languages: List<String> = listOf("fa", "en")) = withContext(Dispatchers.IO) {
+        runCatching {
+            loadCefr()
+            for (lang in languages) {
+                idioms(lang)
+                phrasals(lang)
+            }
         }
     }
 

@@ -1,0 +1,120 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+# A new push to the same branch makes older runs irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (debug APK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make the wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Compile and assemble the debug APK
+        id: assemble
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
+
+      - name: Run unit tests
+        id: test
+        if: always()
+        run: |
+          set -o pipefail
+          ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon 2>&1 | tee test.log
+
+      - name: Lint
+        id: lint
+        if: always()
+        run: |
+          set -o pipefail
+          ./gradlew :app:lintDebug --stacktrace --no-daemon 2>&1 | tee lint.log
+
+      - name: Summarise lint findings
+        if: always()
+        run: |
+          python3 - <<'PY' || true
+          import collections
+          import os
+          import xml.etree.ElementTree as ET
+
+          path = 'app/build/reports/lint-results-debug.xml'
+          if not os.path.exists(path):
+              print('no lint report produced')
+              raise SystemExit
+
+          root = ET.parse(path).getroot()
+          counts = collections.Counter()
+          for issue in root.iter('issue'):
+              counts[(issue.get('severity'), issue.get('id'))] += 1
+
+          for (severity, issue_id), n in sorted(counts.items(), key=lambda kv: str(kv[0])):
+              print('%-8s %-40s x%d' % (severity, issue_id, n))
+
+          print('--- first 40 errors ---')
+          shown = 0
+          for issue in root.iter('issue'):
+              if issue.get('severity') in ('Error', 'Fatal') and shown < 40:
+                  loc = issue.find('location')
+                  where = ''
+                  if loc is not None:
+                      where = '%s:%s' % (loc.get('file', ''), loc.get('line', ''))
+                  print(issue.get('id'), where, (issue.get('message') or '')[:180])
+                  shown += 1
+          PY
+
+      - name: Upload the debug APK
+        if: steps.assemble.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: proudvocab-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish the build logs
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          mkdir -p ci-logs
+          [ -f build.log ] && cp build.log "ci-logs/build-${{ github.run_id }}-${{ github.run_attempt }}.log" || true
+          [ -f test.log ] && cp test.log "ci-logs/test-${{ github.run_id }}-${{ github.run_attempt }}.log" || true
+          [ -f lint.log ] && cp lint.log "ci-logs/lint-${{ github.run_id }}-${{ github.run_attempt }}.log" || true
+          git config user.name "Arena CI"
+          git config user.email "ci@arena.ai"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "ci: publish build logs for run ${{ github.run_id }} [skip ci]"
+          git push origin "HEAD:${{ github.ref_name }}"

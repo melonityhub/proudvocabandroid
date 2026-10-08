@@ -90,6 +90,43 @@ jobs:
                   shown += 1
           PY
 
+      - name: Surface Gradle diagnostics
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+
+          pattern = re.compile(
+              r'(^e: |^w: |error:|FAILURE:|What went wrong|Unresolved reference|'
+              r'Could not resolve|Lint found [0-9]+ errors)',
+              re.IGNORECASE,
+          )
+          summary = os.environ.get('GITHUB_STEP_SUMMARY')
+          count = 0
+          for name in ('build.log', 'test.log', 'lint.log'):
+              if not os.path.exists(name):
+                  continue
+              with open(name, encoding='utf-8', errors='replace') as source:
+                  matches = [line.rstrip() for line in source if pattern.search(line)]
+              if not matches:
+                  continue
+              heading = f'## {name} diagnostics'
+              if summary:
+                  with open(summary, 'a', encoding='utf-8') as out:
+                      out.write(heading + '\n')
+              print(heading)
+              for line in matches[:20]:
+                  safe = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print(f'::error title={name}::{safe}')
+                  print(f'- `{line}`')
+                  count += 1
+                  if count >= 30:
+                      break
+              if count >= 30:
+                  break
+          PY
+
       - name: Upload debug and release APKs
         if: steps.assemble.outcome == 'success'
         uses: actions/upload-artifact@v7

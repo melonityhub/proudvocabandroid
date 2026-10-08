@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ============================ General ============================ -->
+    <string name="app_name">ProudVocab</string>
+    <string name="app_tagline">Learn vocabulary from what you watch</string>
+
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="saved">Saved</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="close">Close</string>
+    <string name="back">Back</string>
+    <string name="done">Done</string>
+    <string name="retry">Retry</string>
+    <string name="loading">Loading…</string>
+    <string name="error">Something went wrong</string>
+    <string name="search">Search</string>
+    <string name="clear">Clear</string>
+    <string name="reset">Reset</string>
+    <string name="apply">Apply</string>
+    <string name="more">More</string>
+    <string name="all">All</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied</string>
+    <string name="share">Share</string>
+    <string name="open">Open</string>
+    <string name="import_action">Import</string>
+    <string name="export_action">Export</string>
+    <string name="seconds_short">%1$ss</string>
+    <string name="percent_value">%1$d%%</string>
+
+    <!-- ============================ Navigation ============================ -->
+    <string name="nav_player">Watch</string>
+    <string name="nav_dictionary">Dictionary</string>
+    <string name="nav_review">Review</string>
+    <string name="nav_games">Games</string>
+    <string name="nav_archive">Words</string>
+    <string name="nav_settings">Settings</string>
+    <string name="cd_navigate_up">Back</string>
+    <string name="cd_open_menu">Open menu</string>
+
+    <!-- ============================ Player ============================ -->
+    <string name="player_open_video">Open video</string>
+    <string name="player_open_subtitle">Load subtitle</string>
+    <string name="player_no_video_title">No video yet</string>
+    <string name="player_no_video_body">Pick a video from your device, then add its subtitle file. Tap a word in the subtitle to look it up and save it.</string>
+    <string name="player_no_video_action">Choose a video</string>
+    <string name="player_no_subtitle">No subtitle loaded</string>
+    <string name="player_speed">Speed</string>
+    <string name="player_delay">Subtitle delay</string>
+    <string name="player_repeat_line">Repeat line</string>
+    <string name="player_prev_line">Previous line</string>
+    <string name="player_next_line">Next line</string>
+    <string name="player_fullscreen">Fullscreen</string>
+    <string name="player_transcript">Transcript</string>
+    <string name="player_dual_subtitles">Dual subtitles</string>
+    <string name="player_subtitles_off">Subtitles off</string>
+    <string name="player_word_saved">Word saved</string>
+    <string name="player_session_words">%1$d words this session</string>
+    <string name="player_translate_line">Translate this line</string>
+    <string name="player_need_storage_permission">Allow media access to browse the videos on this device.</string>
+    <string name="player_grant">Grant</string>
+    <string name="player_loading_subtitle">Reading subtitle…</string>
+    <string name="player_subtitle_failed">Could not read that subtitle file</string>
+
+    <!-- ============================ Dictionary ============================ -->
+    <string name="dict_search_hint">Search a word…</string>
+    <string name="dict_offline_badge">Offline</string>
+    <string name="dict_online_badge">Online</string>
+    <string name="dict_starter_badge">Starter pack</string>
+    <string name="dict_meanings">Meanings</string>
+    <string name="dict_examples">Examples</string>
+    <string name="dict_synonyms">Synonyms</string>
+    <string name="dict_antonyms">Antonyms</string>
+    <string name="dict_family">Word family</string>
+    <string name="dict_idioms">Idioms</string>
+    <string name="dict_forms">Forms</string>
+    <string name="dict_categories">Categories</string>
+    <string name="dict_phonetic_us">US</string>
+    <string name="dict_phonetic_uk">UK</string>
+    <string name="dict_cefr_level">CEFR %1$s</string>
+    <string name="dict_pronounce">Pronounce</string>
+    <string name="dict_history">History</string>
+    <string name="dict_favorites">Favourites</string>
+    <string name="dict_suggestions">Did you mean</string>
+    <string name="dict_no_result">No result</string>
+    <string name="dict_no_result_body">The word is not in the offline database. Connect to the internet, or import a larger dictionary in Settings.</string>
+    <string name="dict_offline_only_hint">Offline database in use — no internet needed</string>
+    <string name="dict_add_favourite">Add to favourites</string>
+    <string name="dict_remove_favourite">Remove from favourites</string>
+    <string name="dict_save_word">Save word</string>
+    <string name="dict_translate_text">Translate text</string>
+    <string name="dict_translate_input_hint">Type or paste a sentence…</string>
+
+    <!-- ============================ Word popup ============================ -->
+    <string name="popup_save">Save</string>
+    <string name="popup_remove">Remove</string>
+    <string name="popup_translate_sentence">Translate sentence</string>
+    <string name="popup_open_in_dictionary">Open in dictionary</string>
+    <string name="popup_idiom">Idiom</string>
+    <string name="popup_phrasal">Phrasal verb</string>
+    <string name="popup_word_family">Word family</string>
+    <string name="popup_tags">Tags</string>
+    <string name="popup_context">Context</string>
+    <string name="popup_translating">Translating…</string>
+
+    <!-- ============================ Review ============================ -->
+    <string name="review_title">Review</string>
+    <string name="review_due">Due</string>
+    <string name="review_start">Start session</string>
+    <string name="review_reveal">Show answer</string>
+    <string name="review_again">Again</string>
+    <string name="review_hard">Hard</string>
+    <string name="review_good">Good</string>
+    <string name="review_easy">Easy</string>
+    <string name="review_learned">Learned</string>
+    <string name="review_finished">Session complete</string>
+    <string name="review_streak">Day streak</string>
+    <string name="review_total">Total words</string>
+    <string name="review_new_limit">New words / day</string>
+    <string name="review_session_limit">Cards / session</string>
+    <string name="review_heatmap">Your year in words</string>
+    <string name="review_next_in">Next review in %1$s</string>
+    <string name="review_empty_title">Nothing to review</string>
+    <string name="review_empty_body">Save words while you watch, or import a deck, and they will show up here.</string>
+    <string name="review_result_total">Cards</string>
+    <string name="review_quit">Quit session</string>
+    <string name="review_flip_hint">Tap the card to flip</string>
+    <string name="review_word_list">Words</string>
+    <string name="interval_minutes">%1$dm</string>
+    <string name="interval_hours">%1$dh</string>
+    <string name="interval_days">%1$dd</string>
+    <string name="interval_months">%1$dmo</string>
+    <string name="interval_years">%1$sy</string>
+
+    <!-- ============================ Games ============================ -->
+    <string name="games_title">Games</string>
+    <string name="games_score">Score</string>
+    <string name="games_correct">Correct</string>
+    <string name="games_wrong">Wrong</string>
+    <string name="games_exit">Exit</string>
+    <string name="games_next">Next</string>
+    <string name="games_replay">Play again</string>
+    <string name="games_finished">Round complete</string>
+    <string name="games_correct_answer_was">Answer: %1$s</string>
+    <string name="games_mc_title">Multiple choice</string>
+    <string name="games_mc_desc">Pick the right translation out of four options.</string>
+    <string name="games_blank_title">Fill the blank</string>
+    <string name="games_blank_desc">Choose the word that fits the sentence.</string>
+    <string name="games_scramble_title">Word scramble</string>
+    <string name="games_scramble_desc">Unscramble the letters to rebuild the word.</string>
+    <string name="games_match_title">Matching</string>
+    <string name="games_match_desc">Match each word with its meaning.</string>
+    <string name="games_dictation_title">Dictation</string>
+    <string name="games_dictation_desc">Listen and type the word you hear.</string>
+    <string name="games_context_title">Context choice</string>
+    <string name="games_context_desc">Guess the word from the sentence it came from.</string>
+    <string name="games_sound">Sound effects</string>
+    <string name="games_auto_pronounce">Auto-pronounce</string>
+    <string name="games_show_learned">Include learned words</string>
+    <string name="games_stats">Your stats</string>
+    <string name="games_not_enough_words">Save at least %1$d words to play.</string>
+    <string name="games_choose_prompt">Choose a game</string>
+
+    <!-- ============================ Archive ============================ -->
+    <string name="archive_title">Saved words</string>
+    <string name="archive_search_hint">Search saved words…</string>
+    <string name="archive_sort_newest">Newest</string>
+    <string name="archive_sort_oldest">Oldest</string>
+    <string name="archive_sort_alpha">A → Z</string>
+    <string name="archive_sort_level">Level</string>
+    <string name="archive_filter_word">Words</string>
+    <string name="archive_filter_idiom">Idioms</string>
+    <string name="archive_filter_phrasal">Phrasal verbs</string>
+    <string name="archive_filter_learned">Learned</string>
+    <string name="archive_export_anki">Export Anki deck</string>
+    <string name="archive_export_json">Export JSON</string>
+    <string name="archive_import_json">Import JSON</string>
+    <string name="archive_empty_title">No saved words</string>
+    <string name="archive_empty_body">Tap any word while watching a video to add it to your list.</string>
+    <string name="archive_count">%1$d words</string>
+    <string name="archive_add_tag">Add tag</string>
+    <string name="archive_delete_confirm_title">Delete this word?</string>
+    <string name="archive_delete_confirm_body">“%1$s” will be removed from your list.</string>
+    <string name="archive_export_done">Export ready</string>
+    <string name="archive_import_done">%1$d words imported</string>
+    <string name="archive_import_failed">Could not read that file</string>
+
+    <!-- ============================ Settings ============================ -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_typography">Text &amp; fonts</string>
+    <string name="settings_section_subtitles">Subtitles</string>
+    <string name="settings_section_languages">Languages</string>
+    <string name="settings_section_translation">Translation</string>
+    <string name="settings_section_learning">Learning</string>
+    <string name="settings_section_srs">Review</string>
+    <string name="settings_section_data">Data</string>
+    <string name="settings_section_offline">Offline</string>
+    <string name="settings_section_permissions">Permissions</string>
+    <string name="settings_section_about">About</string>
+
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_amoled">Black (AMOLED)</string>
+    <string name="settings_dynamic_color">Dynamic colour</string>
+    <string name="settings_dynamic_color_desc">Use the colours of your wallpaper</string>
+    <string name="settings_accent">Accent colour</string>
+    <string name="settings_animations">Animations</string>
+    <string name="settings_animations_desc">Reduce motion to save battery</string>
+    <string name="settings_app_language">App language</string>
+
+    <string name="typography_intro">Every area of the app has its own font, size and colour. Nothing is shared between them, so subtitles, translations and menus never mix up.</string>
+    <string name="typography_target">Text area</string>
+    <string name="typography_app">App interface</string>
+    <string name="typography_subtitle_primary">Subtitle — learning language</string>
+    <string name="typography_subtitle_secondary">Subtitle — translation</string>
+    <string name="typography_transcript">Transcript list</string>
+    <string name="typography_word_card">Word card — headword</string>
+    <string name="typography_word_translation">Word card — translation</string>
+    <string name="typography_dictionary">Dictionary results</string>
+    <string name="typography_flashcard_front">Flashcard — front</string>
+    <string name="typography_flashcard_back">Flashcard — back</string>
+    <string name="typography_game">Game text</string>
+    <string name="typography_archive_word">Saved word</string>
+    <string name="typography_archive_translation">Saved translation</string>
+    <string name="font_family">Font</string>
+    <string name="font_size">Size</string>
+    <string name="font_bold">Bold</string>
+    <string name="font_italic">Italic</string>
+    <string name="font_underline">Underline</string>
+    <string name="text_color">Colour</string>
+    <string name="text_background">Background</string>
+    <string name="letter_spacing">Letter spacing</string>
+    <string name="line_height">Line height</string>
+    <string name="text_align">Alignment</string>
+    <string name="align_start">Start</string>
+    <string name="align_center">Centre</string>
+    <string name="align_end">End</string>
+    <string name="style_reset_area">Reset this area</string>
+    <string name="style_reset_all">Reset every area</string>
+    <string name="style_preview">Preview</string>
+    <string name="font_import">Import a font file…</string>
+    <string name="font_import_done">Font added</string>
+    <string name="font_import_failed">That file is not a usable font</string>
+    <string name="font_builtin_system">Device default</string>
+    <string name="font_builtin_sans">Sans serif</string>
+    <string name="font_builtin_serif">Serif</string>
+    <string name="font_builtin_mono">Monospace</string>
+    <string name="font_group_builtin">Built-in</string>
+    <string name="font_group_device">On this device</string>
+    <string name="font_group_custom">Imported</string>
+    <string name="color_inherit">Automatic</string>
+
+    <string name="settings_sub_position">Vertical position</string>
+    <string name="settings_sub_bg">Background</string>
+    <string name="settings_sub_bg_opacity">Background opacity</string>
+    <string name="settings_sub_dual">Dual subtitles</string>
+    <string name="settings_sub_dual_desc">Show the translated line under the original</string>
+    <string name="settings_sub_max_lines">Max lines</string>
+    <string name="settings_sub_shadowing">Shadowing mode</string>
+    <string name="settings_sub_shadowing_desc">Repeat each line and pause after it</string>
+    <string name="settings_sub_word_chips">Clickable words</string>
+    <string name="settings_sub_highlight_cefr">Colour words by CEFR level</string>
+    <string name="settings_sub_highlight_idioms">Highlight idioms &amp; phrasal verbs</string>
+
+    <string name="settings_learning_language">Language you learn</string>
+    <string name="settings_translation_language">Translate into</string>
+
+    <string name="settings_engine">Translation engine</string>
+    <string name="engine_auto">Automatic</string>
+    <string name="engine_auto_desc">Online when available, offline otherwise</string>
+    <string name="engine_online">Online (Google)</string>
+    <string name="engine_online_desc">Best quality, needs internet</string>
+    <string name="engine_offline">Offline (on-device)</string>
+    <string name="engine_offline_desc">Download the model once, works on a plane</string>
+    <string name="engine_dictionary">Offline dictionary only</string>
+    <string name="engine_dictionary_desc">Word-by-word lookup, no model needed</string>
+    <string name="offline_model_title">Offline translation model</string>
+    <string name="offline_model_ready">Ready · %1$s</string>
+    <string name="offline_model_missing">Not downloaded</string>
+    <string name="offline_model_download">Download (%1$s)</string>
+    <string name="offline_model_downloading">Downloading… %1$d%%</string>
+    <string name="offline_model_delete">Delete model</string>
+    <string name="offline_model_need_wifi">Downloads use your mobile data. Continue?</string>
+    <string name="dict_db_title">Offline dictionary database</string>
+    <string name="dict_db_starter">Starter pack (%1$d words)</string>
+    <string name="dict_db_custom">Imported database</string>
+    <string name="dict_db_import">Import a dictionary…</string>
+    <string name="dict_db_count">%1$s words</string>
+    <string name="dict_db_import_done">Dictionary imported</string>
+    <string name="dict_db_import_failed">That file is not a FastDic database</string>
+    <string name="dict_db_using_starter">Using the bundled starter pack</string>
+
+    <string name="settings_auto_pause">Auto-pause on new word</string>
+    <string name="settings_auto_rewind">Rewind after lookup</string>
+    <string name="settings_rewind_seconds">Rewind length</string>
+    <string name="settings_word_family">Show word family</string>
+    <string name="settings_word_tags">Show word tags</string>
+    <string name="settings_word_details">Show extra details</string>
+    <string name="settings_quick_access">Quick access bar</string>
+
+    <string name="settings_export">Export backup</string>
+    <string name="settings_import">Import backup</string>
+    <string name="settings_reset_srs">Reset review progress</string>
+    <string name="settings_reset_games">Reset game statistics</string>
+    <string name="settings_reset_all">Erase everything</string>
+    <string name="settings_reset_all_title">Erase everything?</string>
+    <string name="settings_reset_all_body">Your saved words, review schedule and settings will be deleted from this device. This cannot be undone.</string>
+    <string name="settings_export_done">Backup saved</string>
+    <string name="settings_import_done">Backup restored</string>
+    <string name="settings_import_failed">Could not read that backup</string>
+
+    <string name="perm_storage_title">Media access</string>
+    <string name="perm_storage_desc">Browse the videos stored on this device</string>
+    <string name="perm_notifications_title">Notifications</string>
+    <string name="perm_notifications_desc">Tell you when an offline model finished downloading</string>
+    <string name="perm_status_granted">Granted</string>
+    <string name="perm_status_denied">Not granted</string>
+    <string name="perm_grant">Grant</string>
+    <string name="perm_open_settings">Open system settings</string>
+    <string name="perm_intro">ProudVocab only asks for what a feature needs, and only at the moment you use that feature.</string>
+
+    <string name="about_version">Version %1$s (%2$d)</string>
+    <string name="about_body">An open-source Android port of the ProudVocab extension: dual subtitles, clickable words, a CEFR-aware vocabulary trainer and a fully offline dictionary — with every option unlocked.</string>
+    <string name="about_source">Source project</string>
+    <string name="about_no_licence">No accounts, no subscriptions, no locked features.</string>
+
+    <!-- ============================ Onboarding ============================ -->
+    <string name="ob_welcome_title">Learn from what you love watching</string>
+    <string name="ob_welcome_body">Load a video and its subtitle, tap any word, and ProudVocab builds a review deck out of the words you actually met.</string>
+    <string name="ob_languages_title">Which languages?</string>
+    <string name="ob_languages_body">Pick what you are learning and what you want translations in. You can change both later.</string>
+    <string name="ob_style_title">Make it yours</string>
+    <string name="ob_style_body">Subtitles, translations, menus and flashcards each have their own font, size and colour.</string>
+    <string name="ob_offline_title">Works offline</string>
+    <string name="ob_offline_body">A bundled dictionary and downloadable translation models mean no internet is required.</string>
+    <string name="ob_next">Next</string>
+    <string name="ob_skip">Skip</string>
+    <string name="ob_start">Start learning</string>
+
+    <!-- ============================ Content descriptions ============================ -->
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
+    <string name="cd_seek_back">Rewind</string>
+    <string name="cd_seek_forward">Fast forward</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_close">Close</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_star">Favourite</string>
+    <string name="cd_add">Add</string>
+    <string name="cd_speaker">Pronounce</string>
+    <string name="cd_swap">Swap</string>
+    <string name="cd_more_options">More options</string>
+    <string name="cd_clear_text">Clear text</string>
+    <string name="cd_cover">Cover art</string>
+    <string name="cd_dictionary">Dictionary</string>
+    <string name="cd_shuffle">Shuffle</string>
+
+
+    <!-- Settings: misc -->
+    <string name="settings_online_fallback">Fallback to online</string>
+    <string name="settings_persian_digits">Persian digits</string>
+    <string name="settings_persian_digits_desc">Show numbers as ۰۱۲۳ instead of 0123</string>
+
+
+    <string name="typography_shadow">Text shadow</string>
+
+
+    <string name="settings_export_failed_hint">Could not create the file</string>
+
+</resources>

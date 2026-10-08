@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ============================ عمومی ============================ -->
+    <string name="app_name">ProudVocab</string>
+    <string name="app_tagline">لغت را از همان‌چیزی که می‌بینی یاد بگیر</string>
+
+    <string name="ok">تأیید</string>
+    <string name="cancel">انصراف</string>
+    <string name="save">ذخیره</string>
+    <string name="saved">ذخیره شد</string>
+    <string name="delete">حذف</string>
+    <string name="edit">ویرایش</string>
+    <string name="close">بستن</string>
+    <string name="back">بازگشت</string>
+    <string name="done">پایان</string>
+    <string name="retry">دوباره</string>
+    <string name="loading">در حال بارگذاری…</string>
+    <string name="error">خطایی رخ داد</string>
+    <string name="search">جست‌وجو</string>
+    <string name="clear">پاک کردن</string>
+    <string name="reset">بازنشانی</string>
+    <string name="apply">اعمال</string>
+    <string name="more">بیشتر</string>
+    <string name="all">همه</string>
+    <string name="yes">بله</string>
+    <string name="no">خیر</string>
+    <string name="copy">رونوشت</string>
+    <string name="copied">رونوشت شد</string>
+    <string name="share">اشتراک</string>
+    <string name="open">باز کردن</string>
+    <string name="import_action">درون‌ریزی</string>
+    <string name="export_action">برون‌ریزی</string>
+    <string name="seconds_short">%1$s ثانیه</string>
+    <string name="percent_value">%1$d٪</string>
+
+    <!-- ============================ ناوبری ============================ -->
+    <string name="nav_player">تماشا</string>
+    <string name="nav_dictionary">دیکشنری</string>
+    <string name="nav_review">مرور</string>
+    <string name="nav_games">بازی‌ها</string>
+    <string name="nav_archive">لغت‌ها</string>
+    <string name="nav_settings">تنظیمات</string>
+    <string name="cd_navigate_up">بازگشت</string>
+    <string name="cd_open_menu">باز کردن منو</string>
+
+    <!-- ============================ پخش‌کننده ============================ -->
+    <string name="player_open_video">انتخاب ویدیو</string>
+    <string name="player_open_subtitle">بارگذاری زیرنویس</string>
+    <string name="player_no_video_title">هنوز ویدیویی انتخاب نشده</string>
+    <string name="player_no_video_body">یک ویدیو از دستگاه انتخاب کن و زیرنویسش را اضافه کن. روی هر لغت زیرنویس بزن تا معنی‌اش را ببینی و ذخیره‌اش کنی.</string>
+    <string name="player_no_video_action">انتخاب ویدیو</string>
+    <string name="player_no_subtitle">زیرنویسی بارگذاری نشده</string>
+    <string name="player_speed">سرعت</string>
+    <string name="player_delay">تأخیر زیرنویس</string>
+    <string name="player_repeat_line">تکرار خط</string>
+    <string name="player_prev_line">خط قبلی</string>
+    <string name="player_next_line">خط بعدی</string>
+    <string name="player_fullscreen">تمام‌صفحه</string>
+    <string name="player_transcript">متن گفتار</string>
+    <string name="player_dual_subtitles">زیرنویس دولایه</string>
+    <string name="player_subtitles_off">زیرنویس خاموش</string>
+    <string name="player_word_saved">لغت ذخیره شد</string>
+    <string name="player_session_words">%1$d لغت در این نشست</string>
+    <string name="player_translate_line">ترجمهٔ این خط</string>
+    <string name="player_need_storage_permission">برای دیدن ویدیوهای دستگاه، دسترسی به رسانه را بده.</string>
+    <string name="player_grant">دادن دسترسی</string>
+    <string name="player_loading_subtitle">در حال خواندن زیرنویس…</string>
+    <string name="player_subtitle_failed">این فایل زیرنویس خوانده نشد</string>
+
+    <!-- ============================ دیکشنری ============================ -->
+    <string name="dict_search_hint">جست‌وجوی لغت…</string>
+    <string name="dict_offline_badge">آفلاین</string>
+    <string name="dict_online_badge">آنلاین</string>
+    <string name="dict_starter_badge">بستهٔ آغازین</string>
+    <string name="dict_meanings">معانی</string>
+    <string name="dict_examples">مثال‌ها</string>
+    <string name="dict_synonyms">هم‌معنی‌ها</string>
+    <string name="dict_antonyms">متضادها</string>
+    <string name="dict_family">خانوادهٔ لغت</string>
+    <string name="dict_idioms">اصطلاح‌ها</string>
+    <string name="dict_forms">صورت‌ها</string>
+    <string name="dict_categories">دسته‌ها</string>
+    <string name="dict_phonetic_us">آمریکایی</string>
+    <string name="dict_phonetic_uk">بریتانیایی</string>
+    <string name="dict_cefr_level">سطح %1$s</string>
+    <string name="dict_pronounce">تلفظ</string>
+    <string name="dict_history">تاریخچه</string>
+    <string name="dict_favorites">علاقه‌مندی‌ها</string>
+    <string name="dict_suggestions">منظورتان این بود</string>
+    <string name="dict_no_result">نتیجه‌ای نبود</string>
+    <string name="dict_no_result_body">این لغت در پایگاه آفلاین نیست. به اینترنت وصل شو یا در تنظیمات یک دیکشنری بزرگ‌تر درون‌ریزی کن.</string>
+    <string name="dict_offline_only_hint">پایگاه آفلاین فعال است — اینترنت لازم نیست</string>
+    <string name="dict_add_favourite">افزودن به علاقه‌مندی‌ها</string>
+    <string name="dict_remove_favourite">حذف از علاقه‌مندی‌ها</string>
+    <string name="dict_save_word">ذخیرهٔ لغت</string>
+    <string name="dict_translate_text">ترجمهٔ متن</string>
+    <string name="dict_translate_input_hint">جمله را بنویس یا بچسبان…</string>
+
+    <!-- ============================ پنجرهٔ لغت ============================ -->
+    <string name="popup_save">ذخیره</string>
+    <string name="popup_remove">حذف</string>
+    <string name="popup_translate_sentence">ترجمهٔ جمله</string>
+    <string name="popup_open_in_dictionary">باز کردن در دیکشنری</string>
+    <string name="popup_idiom">اصطلاح</string>
+    <string name="popup_phrasal">فعل عبارتی</string>
+    <string name="popup_word_family">خانوادهٔ لغت</string>
+    <string name="popup_tags">برچسب‌ها</string>
+    <string name="popup_context">بافت جمله</string>
+    <string name="popup_translating">در حال ترجمه…</string>
+
+    <!-- ============================ مرور ============================ -->
+    <string name="review_title">مرور</string>
+    <string name="review_due">موعد رسیده</string>
+    <string name="review_start">شروع نشست</string>
+    <string name="review_reveal">نمایش پاسخ</string>
+    <string name="review_again">دوباره</string>
+    <string name="review_hard">سخت</string>
+    <string name="review_good">خوب</string>
+    <string name="review_easy">آسان</string>
+    <string name="review_learned">یاد گرفته شده</string>
+    <string name="review_finished">نشست تمام شد</string>
+    <string name="review_streak">زنجیرهٔ روزها</string>
+    <string name="review_total">شمار لغت‌ها</string>
+    <string name="review_new_limit">لغت جدید در روز</string>
+    <string name="review_session_limit">کارت در هر نشست</string>
+    <string name="review_heatmap">سال شما در لغت‌ها</string>
+    <string name="review_next_in">مرور بعدی %1$s دیگر</string>
+    <string name="review_empty_title">چیزی برای مرور نیست</string>
+    <string name="review_empty_body">هنگام تماشا لغت ذخیره کن یا یک دسته وارد کن؛ اینجا ظاهر می‌شوند.</string>
+    <string name="review_result_total">کارت‌ها</string>
+    <string name="review_quit">خروج از نشست</string>
+    <string name="review_flip_hint">برای برگرداندن روی کارت بزن</string>
+    <string name="review_word_list">لغت‌ها</string>
+    <string name="interval_minutes">%1$d دقیقه</string>
+    <string name="interval_hours">%1$d ساعت</string>
+    <string name="interval_days">%1$d روز</string>
+    <string name="interval_months">%1$d ماه</string>
+    <string name="interval_years">%1$s سال</string>
+
+    <!-- ============================ بازی‌ها ============================ -->
+    <string name="games_title">بازی‌ها</string>
+    <string name="games_score">امتیاز</string>
+    <string name="games_correct">درست</string>
+    <string name="games_wrong">غلط</string>
+    <string name="games_exit">خروج</string>
+    <string name="games_next">بعدی</string>
+    <string name="games_replay">دوباره بازی</string>
+    <string name="games_finished">این دور تمام شد</string>
+    <string name="games_correct_answer_was">پاسخ: %1$s</string>
+    <string name="games_mc_title">چندگزینه‌ای</string>
+    <string name="games_mc_desc">ترجمهٔ درست را از میان چهار گزینه پیدا کن.</string>
+    <string name="games_blank_title">جاگذاری</string>
+    <string name="games_blank_desc">لغتی را انتخاب کن که در جمله می‌نشیند.</string>
+    <string name="games_scramble_title">آشوب حروف</string>
+    <string name="games_scramble_desc">حروف را مرتب کن تا لغت ساخته شود.</string>
+    <string name="games_match_title">جفت‌کردن</string>
+    <string name="games_match_desc">هر لغت را با معنایش جفت کن.</string>
+    <string name="games_dictation_title">املای شنیداری</string>
+    <string name="games_dictation_desc">بشنو و لغت را بنویس.</string>
+    <string name="games_context_title">انتخاب از بافت</string>
+    <string name="games_context_desc">لغت را از جمله‌ای که در آن آمده حدس بزن.</string>
+    <string name="games_sound">صدای بازی</string>
+    <string name="games_auto_pronounce">تلفظ خودکار</string>
+    <string name="games_show_learned">شامل لغت‌های یادگرفته‌شده</string>
+    <string name="games_stats">آمار شما</string>
+    <string name="games_not_enough_words">برای بازی دست‌کم %1$d لغت ذخیره کن.</string>
+    <string name="games_choose_prompt">یک بازی انتخاب کن</string>
+
+    <!-- ============================ آرشیو ============================ -->
+    <string name="archive_title">لغت‌های ذخیره‌شده</string>
+    <string name="archive_search_hint">جست‌وجو در لغت‌ها…</string>
+    <string name="archive_sort_newest">جدیدترین</string>
+    <string name="archive_sort_oldest">قدیمی‌ترین</string>
+    <string name="archive_sort_alpha">الف تا ی</string>
+    <string name="archive_sort_level">بر پایهٔ سطح</string>
+    <string name="archive_filter_word">لغت‌ها</string>
+    <string name="archive_filter_idiom">اصطلاح‌ها</string>
+    <string name="archive_filter_phrasal">افعال عبارتی</string>
+    <string name="archive_filter_learned">یادگرفته‌شده</string>
+    <string name="archive_export_anki">برون‌ریزی دستهٔ Anki</string>
+    <string name="archive_export_json">برون‌ریزی JSON</string>
+    <string name="archive_import_json">درون‌ریزی JSON</string>
+    <string name="archive_empty_title">لغتی ذخیره نشده</string>
+    <string name="archive_empty_body">هنگام تماشا روی هر لغت بزن تا به فهرستت اضافه شود.</string>
+    <string name="archive_count">%1$d لغت</string>
+    <string name="archive_add_tag">افزودن برچسب</string>
+    <string name="archive_delete_confirm_title">این لغت حذف شود؟</string>
+    <string name="archive_delete_confirm_body">«%1$s» از فهرستت حذف می‌شود.</string>
+    <string name="archive_export_done">برون‌ریزی آماده است</string>
+    <string name="archive_import_done">%1$d لغت وارد شد</string>
+    <string name="archive_import_failed">این فایل خوانده نشد</string>
+
+    <!-- ============================ تنظیمات ============================ -->
+    <string name="settings_title">تنظیمات</string>
+    <string name="settings_section_appearance">ظاهر</string>
+    <string name="settings_section_typography">متن و قلم</string>
+    <string name="settings_section_subtitles">زیرنویس</string>
+    <string name="settings_section_languages">زبان‌ها</string>
+    <string name="settings_section_translation">ترجمه</string>
+    <string name="settings_section_learning">یادگیری</string>
+    <string name="settings_section_srs">مرور</string>
+    <string name="settings_section_data">داده‌ها</string>
+    <string name="settings_section_offline">آفلاین</string>
+    <string name="settings_section_permissions">دسترسی‌ها</string>
+    <string name="settings_section_about">درباره</string>
+
+    <string name="settings_theme">پوسته</string>
+    <string name="theme_system">همراه با سیستم</string>
+    <string name="theme_light">روشن</string>
+    <string name="theme_dark">تیره</string>
+    <string name="theme_amoled">مشکی (آمولد)</string>
+    <string name="settings_dynamic_color">رنگ پویا</string>
+    <string name="settings_dynamic_color_desc">استفاده از رنگ تصویر زمینه</string>
+    <string name="settings_accent">رنگ تأکیدی</string>
+    <string name="settings_animations">انیمیشن‌ها</string>
+    <string name="settings_animations_desc">برای صرفه‌جویی در باتری کمتر شود</string>
+    <string name="settings_app_language">زبان برنامه</string>
+
+    <string name="typography_intro">هر بخش از برنامه قلم، اندازه و رنگِ خودش را دارد. این تنظیمات با هم قاطی نمی‌شوند؛ پس زیرنویس، ترجمه و منوها هیچ‌وقت به هم ربط پیدا نمی‌کنند.</string>
+    <string name="typography_target">بخش متن</string>
+    <string name="typography_app">رابط برنامه</string>
+    <string name="typography_subtitle_primary">زیرنویس — زبانِ یادگیری</string>
+    <string name="typography_subtitle_secondary">زیرنویس — ترجمه</string>
+    <string name="typography_transcript">فهرست متن گفتار</string>
+    <string name="typography_word_card">کارت لغت — خودِ لغت</string>
+    <string name="typography_word_translation">کارت لغت — ترجمه</string>
+    <string name="typography_dictionary">نتایج دیکشنری</string>
+    <string name="typography_flashcard_front">کارت مرور — رو</string>
+    <string name="typography_flashcard_back">کارت مرور — پشت</string>
+    <string name="typography_game">متن بازی</string>
+    <string name="typography_archive_word">لغت ذخیره‌شده</string>
+    <string name="typography_archive_translation">ترجمهٔ ذخیره‌شده</string>
+    <string name="font_family">قلم</string>
+    <string name="font_size">اندازه</string>
+    <string name="font_bold">درشت</string>
+    <string name="font_italic">مورب</string>
+    <string name="font_underline">زیرخط</string>
+    <string name="text_color">رنگ</string>
+    <string name="text_background">زمینه</string>
+    <string name="letter_spacing">فاصلهٔ حروف</string>
+    <string name="line_height">ارتفاع خط</string>
+    <string name="text_align">تراز</string>
+    <string name="align_start">راست/چپِ متن</string>
+    <string name="align_center">وسط</string>
+    <string name="align_end">پایان</string>
+    <string name="style_reset_area">بازنشانی این بخش</string>
+    <string name="style_reset_all">بازنشانی همهٔ بخش‌ها</string>
+    <string name="style_preview">پیش‌نمایش</string>
+    <string name="font_import">درون‌ریزی فایل قلم…</string>
+    <string name="font_import_done">قلم اضافه شد</string>
+    <string name="font_import_failed">این فایل قلم قابل استفاده نیست</string>
+    <string name="font_builtin_system">پیش‌فرض دستگاه</string>
+    <string name="font_builtin_sans">بدون زائده (Sans)</string>
+    <string name="font_builtin_serif">با زائده (Serif)</string>
+    <string name="font_builtin_mono">یک‌اندازه (Mono)</string>
+    <string name="font_group_builtin">داخلی</string>
+    <string name="font_group_device">روی این دستگاه</string>
+    <string name="font_group_custom">درون‌ریزی‌شده</string>
+    <string name="color_inherit">خودکار</string>
+
+    <string name="settings_sub_position">جای عمودی</string>
+    <string name="settings_sub_bg">زمینه</string>
+    <string name="settings_sub_bg_opacity">کدریِ زمینه</string>
+    <string name="settings_sub_dual">زیرنویس دولایه</string>
+    <string name="settings_sub_dual_desc">نمایش خط ترجمه زیر خط اصلی</string>
+    <string name="settings_sub_max_lines">بیشینهٔ خط‌ها</string>
+    <string name="settings_sub_shadowing">حالت سایه‌روی</string>
+    <string name="settings_sub_shadowing_desc">تکرار هر خط و مکث پس از آن</string>
+    <string name="settings_sub_word_chips">لغت‌های قابل لمس</string>
+    <string name="settings_sub_highlight_cefr">رنگی‌کردن لغت‌ها بر پایهٔ CEFR</string>
+    <string name="settings_sub_highlight_idioms">برجسته‌کردن اصطلاح‌ها و افعال عبارتی</string>
+
+    <string name="settings_learning_language">زبانی که می‌آموزی</string>
+    <string name="settings_translation_language">ترجمه به</string>
+
+    <string name="settings_engine">موتور ترجمه</string>
+    <string name="engine_auto">خودکار</string>
+    <string name="engine_auto_desc">هرگاه اینترنت بود آنلاین، وگرنه آفلاین</string>
+    <string name="engine_online">آنلاین (گوگل)</string>
+    <string name="engine_online_desc">بهترین کیفیت، نیازمند اینترنت</string>
+    <string name="engine_offline">آفلاین (روی دستگاه)</string>
+    <string name="engine_offline_desc">یک بار مدل را بگیر، بعد بی اینترنت هم کار می‌کند</string>
+    <string name="engine_dictionary">فقط دیکشنری آفلاین</string>
+    <string name="engine_dictionary_desc">جست‌وجوی لغت‌به‌لغت، بدون نیاز به مدل</string>
+    <string name="offline_model_title">مدل ترجمهٔ آفلاین</string>
+    <string name="offline_model_ready">آماده · %1$s</string>
+    <string name="offline_model_missing">دریافت نشده</string>
+    <string name="offline_model_download">دریافت (%1$s)</string>
+    <string name="offline_model_downloading">در حال دریافت… %1$d٪</string>
+    <string name="offline_model_delete">حذف مدل</string>
+    <string name="offline_model_need_wifi">دریافت از دادهٔ تلفن همراه انجام شود؟</string>
+    <string name="dict_db_title">پایگاه دیکشنری آفلاین</string>
+    <string name="dict_db_starter">بستهٔ آغازین (%1$d لغت)</string>
+    <string name="dict_db_custom">پایگاه درون‌ریزی‌شده</string>
+    <string name="dict_db_import">درون‌ریزی دیکشنری…</string>
+    <string name="dict_db_count">%1$s لغت</string>
+    <string name="dict_db_import_done">دیکشنری درون‌ریزی شد</string>
+    <string name="dict_db_import_failed">این فایل پایگاه FastDic نیست</string>
+    <string name="dict_db_using_starter">در حال استفاده از بستهٔ آغازینِ همراه برنامه</string>
+
+    <string name="settings_auto_pause">مکث خودکار روی لغت جدید</string>
+    <string name="settings_auto_rewind">عقب‌گرد پس از جست‌وجو</string>
+    <string name="settings_rewind_seconds">اندازهٔ عقب‌گرد</string>
+    <string name="settings_word_family">نمایش خانوادهٔ لغت</string>
+    <string name="settings_word_tags">نمایش برچسب لغت</string>
+    <string name="settings_word_details">نمایش جزئیات بیشتر</string>
+    <string name="settings_quick_access">نوار دسترسی سریع</string>
+
+    <string name="settings_export">برون‌ریزی پشتیبان</string>
+    <string name="settings_import">درون‌ریزی پشتیبان</string>
+    <string name="settings_reset_srs">بازنشانی پیشرفت مرور</string>
+    <string name="settings_reset_games">بازنشانی آمار بازی‌ها</string>
+    <string name="settings_reset_all">پاک کردن همه‌چیز</string>
+    <string name="settings_reset_all_title">همه‌چیز پاک شود؟</string>
+    <string name="settings_reset_all_body">لغت‌ها، برنامهٔ مرور و تنظیمات از این دستگاه حذف می‌شود و بازگشتی ندارد.</string>
+    <string name="settings_export_done">پشتیبان ذخیره شد</string>
+    <string name="settings_import_done">پشتیبان بازیابی شد</string>
+    <string name="settings_import_failed">این پشتیبان خوانده نشد</string>
+
+    <string name="perm_storage_title">دسترسی به رسانه</string>
+    <string name="perm_storage_desc">گشتن در ویدیوهای ذخیره‌شده روی دستگاه</string>
+    <string name="perm_notifications_title">اعلان‌ها</string>
+    <string name="perm_notifications_desc">آگاه‌کردن شما پس از پایان دریافت مدل آفلاین</string>
+    <string name="perm_status_granted">داده شده</string>
+    <string name="perm_status_denied">داده نشده</string>
+    <string name="perm_grant">دادن دسترسی</string>
+    <string name="perm_open_settings">باز کردن تنظیمات سیستم</string>
+    <string name="perm_intro">ProudVocab فقط همان دسترسی‌ای را می‌خواهد که یک قابلیت لازم دارد، و فقط هنگامی که از آن قابلیت استفاده می‌کنی.</string>
+
+    <string name="about_version">نسخهٔ %1$s (%2$d)</string>
+    <string name="about_body">یک پورتِ اندرویدیِ متن‌باز از افزونهٔ ProudVocab: زیرنویس دولایه، لغت‌های قابل لمس، تمرین‌کنندهٔ لغتِ آگاه به سطح CEFR و یک دیکشنری کاملاً آفلاین — با همهٔ گزینه‌ها باز.</string>
+    <string name="about_source">پروژهٔ مبدأ</string>
+    <string name="about_no_licence">بدون حساب، بدون اشتراک، بدون قابلیت قفل‌شده.</string>
+
+    <!-- ============================ آشنایی آغازین ============================ -->
+    <string name="ob_welcome_title">از همان‌چیزی که دوست داری ببینی یاد بگیر</string>
+    <string name="ob_welcome_body">ویدیو و زیرنویسش را بار کن، روی هر لغت بزن؛ ProudVocab از لغت‌هایی که واقعاً دیده‌ای یک دستهٔ مرور می‌سازد.</string>
+    <string name="ob_languages_title">کدام زبان‌ها؟</string>
+    <string name="ob_languages_body">زبانی که می‌آموزی و زبانی که می‌خواهی به آن ترجمه شود را انتخاب کن. هر دو را بعداً هم می‌توانی عوض کنی.</string>
+    <string name="ob_style_title">آن را از آنِ خودت کن</string>
+    <string name="ob_style_body">زیرنویس، ترجمه، منوها و کارت‌های مرور هرکدام قلم، اندازه و رنگِ جداگانه دارند.</string>
+    <string name="ob_offline_title">بی‌اینترنت هم کار می‌کند</string>
+    <string name="ob_offline_body">یک دیکشنری همراه برنامه و مدل‌های ترجمهٔ قابل دریافت یعنی اینترنت لازم نیست.</string>
+    <string name="ob_next">بعدی</string>
+    <string name="ob_skip">رد کردن</string>
+    <string name="ob_start">شروع یادگیری</string>
+
+    <!-- ============================ توضیحات دسترسی‌پذیری ============================ -->
+    <string name="cd_play">پخش</string>
+    <string name="cd_pause">توقف</string>
+    <string name="cd_seek_back">عقب</string>
+    <string name="cd_seek_forward">جلو</string>
+    <string name="cd_settings">تنظیمات</string>
+    <string name="cd_close">بستن</string>
+    <string name="cd_delete">حذف</string>
+    <string name="cd_star">علاقه‌مندی</string>
+    <string name="cd_add">افزودن</string>
+    <string name="cd_speaker">تلفظ</string>
+    <string name="cd_swap">جابه‌جایی</string>
+    <string name="cd_more_options">گزینه‌های بیشتر</string>
+    <string name="cd_clear_text">پاک کردن متن</string>
+    <string name="cd_cover">تصویر جلد</string>
+    <string name="cd_dictionary">دیکشنری</string>
+    <string name="cd_shuffle">درهم‌کردن</string>
+
+
+    <!-- Settings: misc -->
+    <string name="settings_online_fallback">تلاش آنلاین در صورت نیاز</string>
+    <string name="settings_persian_digits">ارقام فارسی</string>
+    <string name="settings_persian_digits_desc">نمایش اعداد به صورت ۰۱۲۳ به‌جای 0123</string>
+
+
+    <string name="typography_shadow">سایهٔ متن</string>
+
+
+    <string name="settings_export_failed_hint">ساخت فایل ممکن نشد</string>
+
+</resources>

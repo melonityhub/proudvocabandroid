@@ -26,20 +26,40 @@ android {
     // ---------------------------------------------------------------------
     // Signing
     // A fresh clone must build `assembleRelease` without any secret, so the
-    // release build falls back to the standard Android debug signing config.
-    // To publish a real release, supply a keystore through the environment:
+    // release build falls back to the stable release keystore committed to
+    // the repo (keystore/release.keystore + keystore/release.properties).
+    // The key is stable across CI runs, which is what lets one GitHub
+    // Release install as an in-place update of the previous one — the debug
+    // signing config must NOT be used for releases, because a fresh CI
+    // runner generates a brand-new debug key on every run.
+    // To sign with your own key instead, supply a keystore through the
+    // environment (takes priority over the committed one):
     //   PV_KEYSTORE_FILE, PV_KEYSTORE_PASSWORD, PV_KEY_ALIAS, PV_KEY_PASSWORD
     // ---------------------------------------------------------------------
-    val releaseKeystore = System.getenv("PV_KEYSTORE_FILE")
-    val hasReleaseKeystore = !releaseKeystore.isNullOrBlank() && file(releaseKeystore).exists()
+    val envKeystore = System.getenv("PV_KEYSTORE_FILE")
+    val envKeystoreReady = !envKeystore.isNullOrBlank() && file(envKeystore).exists()
+
+    val repoKeystoreFile = file("keystore/release.keystore")
+    val repoKeystoreProps = file("keystore/release.properties")
+    val repoKeystoreReady = repoKeystoreFile.exists() && repoKeystoreProps.exists()
 
     signingConfigs {
-        if (hasReleaseKeystore) {
+        if (envKeystoreReady) {
             create("upload") {
-                storeFile = file(releaseKeystore!!)
+                storeFile = file(envKeystore!!)
                 storePassword = System.getenv("PV_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("PV_KEY_ALIAS")
                 keyPassword = System.getenv("PV_KEY_PASSWORD")
+            }
+        } else if (repoKeystoreReady) {
+            val repoKeystoreProperties = java.util.Properties()
+            repoKeystoreProps.inputStream().use { repoKeystoreProperties.load(it) }
+            create("repoRelease") {
+                storeFile = repoKeystoreFile
+                storeType = "PKCS12"
+                storePassword = repoKeystoreProperties.getProperty("storePassword")
+                keyAlias = repoKeystoreProperties.getProperty("keyAlias")
+                keyPassword = repoKeystoreProperties.getProperty("keyPassword")
             }
         }
     }
@@ -57,10 +77,16 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = if (hasReleaseKeystore) {
-                signingConfigs.getByName("upload")
-            } else {
-                signingConfigs.getByName("debug")
+            signingConfig = when {
+                envKeystoreReady -> signingConfigs.getByName("upload")
+                repoKeystoreReady -> signingConfigs.getByName("repoRelease")
+                else -> {
+                    logger.warn(
+                        "ProudVocab: no release keystore available — signing the release " +
+                            "build with the debug config (unstable signature on CI runners)."
+                    )
+                    signingConfigs.getByName("debug")
+                }
             }
         }
     }

@@ -44,6 +44,16 @@ class DictionaryManager(private val context: Context) {
     private val idiomCache = ConcurrentHashMap<String, Map<String, String>>()
     private val phrasalCache = ConcurrentHashMap<String, Map<String, String>>()
 
+    /**
+     * Set once [preload] has parsed the shipped tables off the main thread.
+     *
+     * The chip renderer and the subtitle pipeline read these tables during
+     * composition; without this gate a call that races the start-up preloader
+     * would parse ~400 KB of assets *on the UI thread* mid-playback.
+     */
+    @Volatile
+    private var assetsPreloaded = false
+
     private val json = Json { ignoreUnknownKeys = true }
 
     val dir: File get() = File(context.filesDir, "dictionary").also { it.mkdirs() }
@@ -172,24 +182,32 @@ class DictionaryManager(private val context: Context) {
         runCatching {
             loadCefr()
             for (lang in languages) {
-                idioms(lang)
-                phrasals(lang)
+                // Direct cache fill: the idioms()/phrasals() accessors are
+                // gated on assetsPreloaded and would return empty maps here.
+                idiomCache.getOrPut(lang) { loadMap("idioms.json", lang) }
+                phrasalCache.getOrPut(lang) { loadMap("phrasal.json", lang) }
             }
         }
+        assetsPreloaded = true
     }
 
     /** CEFR level of a word, from the bundled list; falls back to the database. */
     fun cefr(word: String): String? {
-        loadCefr()
+        // Not `loadCefr()` unconditionally: the first caller used to pay the
+        // whole asset parse on the calling thread — which during composition
+        // is the UI thread. Preload() has filled the table by now.
+        if (!cefrLoaded) return null
         val key = word.lowercase().trim()
         return cefrCache[key]
     }
 
     private fun idioms(lang: String): Map<String, String> =
-        idiomCache.getOrPut(lang) { loadMap("idioms.json", lang) }
+        if (assetsPreloaded) idiomCache.getOrPut(lang) { loadMap("idioms.json", lang) }
+        else emptyMap()
 
     private fun phrasals(lang: String): Map<String, String> =
-        phrasalCache.getOrPut(lang) { loadMap("phrasal.json", lang) }
+        if (assetsPreloaded) phrasalCache.getOrPut(lang) { loadMap("phrasal.json", lang) }
+        else emptyMap()
 
     private fun loadMap(asset: String, lang: String): Map<String, String> = runCatching {
         val raw = context.assets.open(asset).bufferedReader().use { it.readText() }

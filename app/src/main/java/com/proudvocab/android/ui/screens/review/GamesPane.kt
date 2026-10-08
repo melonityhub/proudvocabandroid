@@ -501,7 +501,10 @@ private fun GameRunner(
                                     },
                                     onClick = {
                                         if (selectedWord == pair.word) {
-                                            vm.answer(pair.word)
+                                            // `question.answer` for MATCH is the
+                                            // translation, so `answer(word)` graded every
+                                            // correct pair as wrong — score it directly.
+                                            vm.recordCorrect()
                                             matched = matched + pair.word
                                             selectedWord = null
                                         } else {
@@ -515,12 +518,11 @@ private fun GameRunner(
                         }
                     }
                     if (matched.size == pairs.size && pairs.isNotEmpty()) {
-                        Spacer(Modifier.height(16.dp))
-                        PrimaryButton(
-                            text = stringResource(R.string.games_next),
-                            onClick = vm::nextQuestion,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        // All six pairs are done — the match board is the whole
+                        // round. Calling nextQuestion() here replayed the very
+                        // same board (matched resets per question), so the round
+                        // finishes instead.
+                        LaunchedEffect(Unit) { vm.finishGame() }
                     }
                 }
                 else -> {

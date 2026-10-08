@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
@@ -484,7 +486,13 @@ private fun FontPickerDialog(
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     }
                 }
-                Column(modifier = Modifier.heightIn(max = 380.dp)) {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 380.dp)
+                        // The device can easily declare 100+ font families; a
+                        // fixed-height column clipped them out of reach.
+                        .verticalScroll(rememberScrollState())
+                ) {
                     grouped.forEach { (group, items) ->
                         Text(
                             text = stringResource(

@@ -171,6 +171,9 @@ class VocabRepository(private val dao: VocabDao) {
     suspend fun resetScheduling() = dao.resetScheduling()
     suspend fun clearWords() = dao.clearWords()
 
+    /** Clears the study-day rows behind the streak and the activity heat-map. */
+    suspend fun clearStudyDays() = dao.clearStudyDays()
+
     // ------------------------------------------------------------- games
     suspend fun recordGame(game: String, correct: Int, wrong: Int, score: Int) {
         val existing = dao.gameStat(game)

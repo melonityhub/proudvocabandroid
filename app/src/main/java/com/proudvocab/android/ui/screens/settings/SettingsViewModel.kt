@@ -208,7 +208,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun deleteModel() {
         viewModelScope.launch {
-            translation.offline.deleteModel(_settings.value.translationLanguage)
+            val s = _settings.value
+            translation.offline.deleteModel(s.learningLanguage, s.translationLanguage)
             checkModel()
         }
     }
@@ -289,7 +290,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val context = getApplication<Application>()
         val uri: Uri = androidx.core.content.FileProvider.getUriForFile(
             context,
-            "${'$'}{context.packageName}.files",
+            // Must be real interpolation: the escaped `${'$'}{...}` variant produced
+            // the literal text "${context.packageName}.files", which no provider
+            // is registered under, so `getUriForFile` threw
+            // IllegalArgumentException and every export from this screen
+            // crashed the app (the archive's own copy was correct).
+            "${context.packageName}.files",
             file
         )
         return Intent(Intent.ACTION_SEND).apply {
@@ -356,6 +362,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         app.vocabRepository.clearWords()
         app.vocabRepository.clearHistory()
         app.vocabRepository.clearGameStats()
+        app.vocabRepository.clearStudyDays()
         settings.resetAllStyles()
         settings.update { AppSettings(onboardingCompleted = true) }
     }

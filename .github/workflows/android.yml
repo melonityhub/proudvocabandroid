@@ -298,12 +298,47 @@ jobs:
                   safe = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
                   print(f'::error title={name}::{safe}')
                   print(f'- `{line}`')
-                  count += 1
-                  if count >= 30:
-                      break
-              if count >= 30:
+
+          # Deep-dive: when a KSP failure appears, print targeted excerpts as
+          # separate (small) annotations: task markers, the exception block,
+          # the stack trace and the schema dir state.
+          for name in ('build.log', 'test.log', 'lint.log'):
+              if not os.path.exists(name):
+                  continue
+              lines = open(name, encoding='utf-8', errors='replace').read().splitlines()
+
+              def emit(title, payload):
+                  safe = payload.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')[:1400]
+                  print(f'::error title={title}::{safe}')
+                  print(f'### {title}')
+                  print('```')
+                  print(payload[:2000])
+                  print('```')
+                  if summary:
+                      with open(summary, 'a', encoding='utf-8') as out:
+                          out.write(f'## {title}\n```\n{payload[:2000]}\n```\n')
+
+              ksp_tasks = [f'{i}: {l.strip()}' for i, l in enumerate(lines)
+                           if re.search(r'> Task :app:ksp\w*', l)]
+              if ksp_tasks:
+                  emit(f'{name} ksp task lines', '\n'.join(ksp_tasks))
+
+              for i, line in enumerate(lines):
+                  if 'Empty schema file' not in line and '[ksp]' not in line:
+                      continue
+                  emit(f'{name} around error (line {i})',
+                       '\n'.join(lines[max(0, i - 15):i + 10]))
+                  # the Gradle failure report with the full cause chain
+                  for j, l2 in enumerate(lines):
+                      if l2.startswith('* Exception') or l2.startswith('FAILURE: Build failed'):
+                          emit(f'{name} failure report (line {j})',
+                               '\n'.join(lines[j:j + 60]))
+                          break
                   break
           PY
+
+          echo '--- schema dir after build ---'
+          ls -la app/schemas/com.proudvocab.android.core.data.AppDatabase/ 2>/dev/null || echo 'no schema dir after build'
 
       - name: Upload debug APKs
         if: always() && steps.assemble.outcome == 'success'

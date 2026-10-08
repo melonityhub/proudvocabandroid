@@ -179,9 +179,17 @@ class ArchiveViewModel(application: Application) : AndroidViewModel(application)
                 return@launch
             }
             words.forEach {
+                // Keep every field the backup carries — dropping sourceTitle,
+                // cefr, phonetic and partOfSpeech here silently stripped the
+                // metadata of anything imported from this screen.
                 vocab.save(
                     it.word, it.language, it.translation, it.contextSentence,
-                    kind = it.kind, tags = it.tags
+                    sourceTitle = it.sourceTitle,
+                    cefr = it.cefr,
+                    phonetic = it.phonetic,
+                    partOfSpeech = it.partOfSpeech,
+                    kind = it.kind,
+                    tags = it.tags
                 )
             }
             _uiState.set { it.copy(message = "imported") }

@@ -1,4 +1,5 @@
 import com.android.build.api.variant.FilterConfiguration
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -52,7 +53,7 @@ android {
                 keyPassword = System.getenv("PV_KEY_PASSWORD")
             }
         } else if (repoKeystoreReady) {
-            val repoKeystoreProperties = java.util.Properties()
+            val repoKeystoreProperties = Properties()
             repoKeystoreProps.inputStream().use { repoKeystoreProperties.load(it) }
             create("repoRelease") {
                 storeFile = repoKeystoreFile

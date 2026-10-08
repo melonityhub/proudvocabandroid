@@ -100,6 +100,7 @@ import com.proudvocab.android.ui.theme.CefrColors
 import com.proudvocab.android.ui.theme.rememberTargetStyle
 import kotlinx.coroutines.launch
 
+@UnstableApi
 @Composable
 fun PlayerScreen(
     incomingIntent: Intent?,

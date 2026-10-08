@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -52,6 +53,7 @@ import com.proudvocab.android.ui.screens.review.ReviewScreen
 import com.proudvocab.android.ui.screens.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
+@UnstableApi
 @Composable
 fun ProudVocabRoot(incomingIntent: Intent?) {
     val deps = LocalDependencies.current

@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.util.UnstableApi
 import com.proudvocab.android.core.settings.AppSettings
 import com.proudvocab.android.core.util.LocaleHelper
 import com.proudvocab.android.core.util.LocaleStore
@@ -27,6 +28,7 @@ val LocalHostActivity = staticCompositionLocalOf<ComponentActivity> {
     error("No activity provided")
 }
 
+@UnstableApi
 class MainActivity : ComponentActivity() {
 
     private var startIntent by mutableStateOf<Intent?>(null)

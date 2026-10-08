@@ -166,6 +166,46 @@ jobs:
 
           echo "Verified: ${#expected[@]} split APKs, unique versionCodes, splits newer than universal."
 
+      # A release signed with anything other than the committed key cannot be
+      # installed over the previous one, so refuse to publish it. This is what
+      # let 1.0.0 and 1.0.1 out the door with a per-runner debug signature.
+      - name: Verify the APKs are signed with the committed release key
+        if: steps.skip.outputs.done != 'true'
+        run: |
+          set -euo pipefail
+
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          apksigner="$(ls "$sdk_root"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -n 1 || true)"
+          [ -n "$apksigner" ] || { echo "::error::apksigner not found under $sdk_root"; exit 1; }
+
+          apk="app/build/outputs/apk/release/app-arm64-v8a-release.apk"
+          actual="$( "$apksigner" verify --print-certs "$apk" 2>/dev/null \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1 | tr -d ':' | tr 'A-F' 'a-f' )"
+          [ -n "$actual" ] || { echo "::error::could not read the signing certificate of $apk"; exit 1; }
+
+          if [ -n "${PV_KEYSTORE_FILE:-}" ]; then
+            echo "::notice::Signed with the PV_KEYSTORE_* secret key ($actual); not compared to the committed key."
+            exit 0
+          fi
+
+          store_pass="$(sed -n 's/^storePassword=//p' keystore/release.properties)"
+          key_alias="$(sed -n 's/^keyAlias=//p' keystore/release.properties)"
+          expected="$( keytool -list -v -keystore keystore/release.keystore -storetype PKCS12 \
+            -storepass "$store_pass" -alias "$key_alias" 2>/dev/null \
+            | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -n1 | tr -d ':' | tr 'A-F' 'a-f' )"
+
+          echo "committed key:  ${expected:-<unreadable>}"
+          echo "apk signed by:  $actual"
+          if [ -z "$expected" ]; then
+            echo "::error::could not read keystore/release.keystore — refusing to publish an unverifiable signature."
+            exit 1
+          fi
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::$apk is NOT signed with the committed release key; it would not install over the previous release."
+            exit 1
+          fi
+          echo "::notice::Release APKs are signed with the committed stable key ($actual)."
+
       - name: Create or refresh the GitHub release
         if: steps.skip.outputs.done != 'true'
         env:

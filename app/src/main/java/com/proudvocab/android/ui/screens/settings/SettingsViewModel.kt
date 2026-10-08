@@ -124,7 +124,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         app.fonts.deleteFont(
             com.proudvocab.android.ui.theme.FontOption(
                 key,
-                com.proudvocab.android.ui.theme.FontKeys.customName(key),
+                com.proudvocab.android.core.settings.FontKeys.customName(key),
                 com.proudvocab.android.ui.theme.FontGroup.CUSTOM
             )
         )

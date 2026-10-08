@@ -152,8 +152,9 @@ class FontRepository(private val context: Context) {
             key == keys.SANS -> FontFamily.SansSerif
             key == keys.SYSTEM -> FontFamily.Default
             keys.isDevice(key) -> runCatching {
-                val typeface = Typeface.create(keys.deviceName(key), typefaceStyle(weight, style))
-                FontFamily(Font(typeface, weight, style))
+                Typeface.create(keys.deviceName(key), typefaceStyle(weight, style))
+                    ?.let { FontFamily(it) }
+                    ?: FontFamily.Default
             }.getOrDefault(FontFamily.Default)
 
             keys.isCustom(key) -> runCatching {

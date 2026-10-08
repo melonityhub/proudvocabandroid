@@ -19,13 +19,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += setOf("en", "fa", "tr", "de", "fr", "es", "ar", "ru")
-
-        // Room schema export is useful for future migrations.
-        javaCompileOptions {
-            annotationProcessorOptions {
-                arguments["room.schemaLocation"] = "$projectDir/schemas"
-            }
-        }
     }
 
     // ---------------------------------------------------------------------
@@ -123,6 +116,11 @@ android {
         checkReleaseBuilds = false
         disable += setOf("MissingTranslation", "ExtraTranslation", "GradleDependency", "OldTargetApi")
     }
+}
+
+// Room writes its schema here, so future migrations can be verified.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

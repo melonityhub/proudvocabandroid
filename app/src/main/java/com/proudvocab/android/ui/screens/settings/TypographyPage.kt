@@ -61,6 +61,7 @@ import com.proudvocab.android.core.settings.StyleTarget
 import com.proudvocab.android.core.settings.TextAlignPref
 import com.proudvocab.android.core.settings.TextStylePref
 import com.proudvocab.android.ui.LocalDependencies
+import com.proudvocab.android.ui.theme.previewSample
 import com.proudvocab.android.ui.components.ColorSwatches
 import com.proudvocab.android.ui.components.GhostButton
 import com.proudvocab.android.ui.components.PreferenceRow
@@ -140,11 +141,11 @@ fun TypographyPage(vm: SettingsViewModel, settings: AppSettings) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        StyleTarget.ALL.forEach { item ->
+                        StyleTarget.ALL.forEach { area ->
                             AreaChip(
-                                label = stringResource(item.label()),
-                                selected = item == target,
-                                onClick = { vm.setStyleTarget(item) }
+                                label = stringResource(area.label()),
+                                selected = area == target,
+                                onClick = { vm.setStyleTarget(area) }
                             )
                         }
                     }

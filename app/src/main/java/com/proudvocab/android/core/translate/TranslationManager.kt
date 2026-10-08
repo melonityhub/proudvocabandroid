@@ -95,6 +95,8 @@ class TranslationManager(
 
                 TranslationEngine.DICTIONARY ->
                     dictionaryTranslator.translate(text, target == "fa")
+
+                TranslationEngine.AUTO -> null
             }
             if (attempt != null) {
                 attempt.onSuccess { return Result.success(it) }

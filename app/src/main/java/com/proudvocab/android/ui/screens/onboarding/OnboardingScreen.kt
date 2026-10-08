@@ -7,12 +7,12 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.using
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -125,9 +125,13 @@ fun OnboardingScreen(onFinish: () -> Unit) {
             AnimatedContent(
                 targetState = step,
                 transitionSpec = {
-                    (slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { it / 3 } + fadeIn())
-                        .togetherWith(ExitTransition.None)
-                        .using(SizeTransform(clip = false))
+                    ContentTransform(
+                        targetContentEnter = slideInHorizontally(
+                            tween(320, easing = FastOutSlowInEasing)
+                        ) { it / 3 } + fadeIn(),
+                        initialContentExit = ExitTransition.None,
+                        sizeTransform = SizeTransform(clip = false)
+                    )
                 },
                 label = "onboarding",
                 modifier = Modifier.weight(1f)

@@ -11,12 +11,12 @@ data class TranslationResult(
     val detectedSource: String? = null
 )
 
-/** Progress of an offline model download. */
+/** Lifecycle of an offline model download. */
 sealed interface ModelState {
     data object Unknown : ModelState
     data object Checking : ModelState
     data object Missing : ModelState
-    data class Downloading(val percent: Int) : ModelState
+    data object Downloading : ModelState
     data object Ready : ModelState
     data class Failed(val message: String) : ModelState
 }

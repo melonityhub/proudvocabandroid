@@ -89,12 +89,14 @@ line height, alignment and shadow. Changing one never touches another.
 
 ## 6. Android platform conventions
 
-- [x] Nothing is requested at startup. Permissions are only asked when the
-      feature is used, and there is a **Settings → Permissions** page that
-      shows the current state and jumps to the system page.
-      - `READ_MEDIA_VIDEO` (33+) / `READ_EXTERNAL_STORAGE` (≤32) — pick a video.
-      - `POST_NOTIFICATIONS` (33+) — offline model download progress.
-      - `INTERNET` / `ACCESS_NETWORK_state` — declared, not runtime.
+- [x] No broad or runtime storage/notification permissions are requested.
+      `OpenDocument` grants access only to the video or subtitle the user picks;
+      the **Settings → Permissions** page explains this rather than prompting
+      for permissions that the app does not need.
+- [x] `INTERNET` and `ACCESS_NETWORK_STATE` are declared for online translation
+      and a model download explicitly started by the user; neither is a runtime
+      permission. Model downloads show an indeterminate progress indicator
+      (ML Kit does not expose a reliable byte percentage through this API).
 - [x] Files are shared through a `FileProvider` (`res/xml/file_paths.xml`),
       never by `file://` URI.
 - [x] Edge-to-edge, `WindowInsets(0)`, `consumeWindowInsets` on the nav host.
@@ -108,8 +110,9 @@ line height, alignment and shadow. Changing one never touches another.
       and Persian → English.
 - [x] **Import your own** database (Settings → Translation → Import database);
       it replaces the bundled one and can be removed again.
-- [x] **ML Kit on-device translation** as a separate engine: download, delete,
-      progress, and a Wi-Fi hint.
+- [x] **ML Kit on-device translation** as a separate engine, with explicit
+      download/delete controls and an indeterminate download indicator. A
+      numeric progress percentage and Wi-Fi-only mode are not claimed.
 - [x] **Dictionary engine**: word-by-word gloss fallback that works with zero
       network and zero downloaded models.
 - [x] Ridiculously defensive lookups: a missing database, a strange schema or
@@ -117,14 +120,14 @@ line height, alignment and shadow. Changing one never touches another.
 
 ## 8. Builds cleanly on GitHub Actions
 
-- [x] `.github/workflows/android.yml`: checkout → JDK 17 → Gradle → assemble
-      debug → unit tests → upload APK.
-- [x] A fresh clone builds with **no secrets**: the release build type falls
+- [ ] `.github/workflows/android.yml` runs debug/release assembly, unit tests,
+      and lint; verify the current workflow run before marking this complete.
+- [ ] A fresh clone builds with **no secrets**: the release build type falls
       back to the debug signing config unless `PV_KEYSTORE_*` is provided.
 - [x] `./gradlew` and `gradle/wrapper/gradle-wrapper.jar` are committed.
-- [x] Unit tests cover the parts that are pure Kotlin and easy to get wrong:
-      `SrsScheduler`, `TextUtils` + `ColorCodec`, `SubtitleParser`,
-      `GameEngine`, `DeckExporter`, `StylePrefs`.
+- [x] Unit tests cover pure Kotlin behavior including `SrsScheduler`,
+      `TextUtils` + `ColorCodec`, `SubtitleParser`, `GameEngine`, `DeckExporter`,
+      and `StylePrefs`.
 
 ---
 
@@ -132,9 +135,13 @@ line height, alignment and shadow. Changing one never touches another.
 
 These cannot be proven from the code alone; run them once on a real device.
 
-- [ ] Pick a video + subtitle, confirm cues line up and the delay control works.
-- [ ] Tap a word in the subtitle, confirm the popup, save, and see it in the
-      archive.
+- [ ] On the Poco X3 Pro (or equivalent), pick a video and subtitle through
+      Android's file picker; confirm there is no broad storage permission prompt,
+      cues/delay work, playback speed changes, and fullscreen rotates/restores.
+- [ ] Test automatic and on-demand line translation, including no-network
+      failure/retry, and next/previous cue navigation in the transcript.
+- [ ] Tap a subtitle word, open its dictionary result via quick access, save it,
+      and confirm it appears in the archive.
 - [ ] Download an ML Kit model on Wi-Fi and translate a line offline.
 - [ ] Import a large `.sqlite` dictionary and search in both directions.
 - [ ] Switch the app language to Persian and check every screen for clipped

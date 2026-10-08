@@ -23,19 +23,26 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.proudvocab.android.LocalHostActivity
+import com.proudvocab.android.MainActivity
 import com.proudvocab.android.core.settings.AppSettings
 import com.proudvocab.android.ui.navigation.Destination
 import com.proudvocab.android.ui.screens.archive.ArchiveScreen
@@ -46,11 +53,15 @@ import com.proudvocab.android.ui.screens.review.ReviewScreen
 import com.proudvocab.android.ui.screens.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
+@UnstableApi
 @Composable
 fun ProudVocabRoot(incomingIntent: Intent?) {
     val deps = LocalDependencies.current
     val settings by deps.settings.settings.collectAsStateWithLifecycle(AppSettings())
     val scope = rememberCoroutineScope()
+    val hostActivity = LocalHostActivity.current
+    var playerFullscreen by rememberSaveable { mutableStateOf(false) }
+    var dictionaryInitialQuery by rememberSaveable { mutableStateOf("") }
 
     if (!settings.onboardingCompleted) {
         OnboardingScreen(onFinish = {
@@ -63,11 +74,18 @@ fun ProudVocabRoot(incomingIntent: Intent?) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != Destination.Watch.route && playerFullscreen) {
+            playerFullscreen = false
+            (hostActivity as? MainActivity)?.setPlayerFullscreen(false)
+        }
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             AnimatedVisibility(
-                visible = true,
+                visible = !playerFullscreen,
                 enter = slideInVertically(tween(300)) { it } + fadeIn(),
                 exit = slideOutVertically(tween(200)) { it } + fadeOut()
             ) {
@@ -132,14 +150,29 @@ fun ProudVocabRoot(incomingIntent: Intent?) {
                     slideOutHorizontally(tween(220)) { it / 8 } + fadeOut(tween(160))
                 }
             ) {
-                composable(Destination.Watch.route) { PlayerScreen(incomingIntent) }
-                composable(Destination.Dictionary.route) {
-                    DictionaryScreen(
-                        onOpenWatch = {
-                            navController.navigate(Destination.Watch.route) {
+                composable(Destination.Watch.route) {
+                    PlayerScreen(
+                        incomingIntent = incomingIntent,
+                        fullscreen = playerFullscreen,
+                        onToggleFullscreen = { enabled ->
+                            playerFullscreen = enabled
+                            (hostActivity as? MainActivity)?.setPlayerFullscreen(enabled)
+                        },
+                        onIncomingIntentHandled = {
+                            (hostActivity as? MainActivity)?.consumeIncomingIntent(incomingIntent)
+                        },
+                        onOpenDictionary = { word ->
+                            dictionaryInitialQuery = word
+                            navController.navigate(Destination.Dictionary.route) {
                                 launchSingleTop = true
                             }
                         }
+                    )
+                }
+                composable(Destination.Dictionary.route) {
+                    DictionaryScreen(
+                        initialQuery = dictionaryInitialQuery,
+                        onInitialQueryConsumed = { dictionaryInitialQuery = "" }
                     )
                 }
                 composable(Destination.Review.route) { ReviewScreen() }

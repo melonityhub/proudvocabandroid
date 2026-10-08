@@ -10,9 +10,6 @@
         <include
             domain="file"
             path="fonts" />
-        <exclude
-            domain="file"
-            path="dictionary" />
     </cloud-backup>
     <device-transfer>
         <include
@@ -24,8 +21,5 @@
         <include
             domain="file"
             path="fonts" />
-        <exclude
-            domain="file"
-            path="dictionary" />
     </device-transfer>
 </data-extraction-rules>

@@ -1,11 +1,7 @@
 package com.proudvocab.android.ui.screens.settings
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -30,6 +26,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,9 +46,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import com.proudvocab.android.BuildConfig
 import com.proudvocab.android.R
+import com.proudvocab.android.core.model.AppLanguage
 import com.proudvocab.android.core.model.Languages
 import com.proudvocab.android.core.settings.AppSettings
 import com.proudvocab.android.core.settings.ThemeMode
@@ -66,6 +64,7 @@ import com.proudvocab.android.ui.components.SegmentedPreference
 import com.proudvocab.android.ui.components.SettingsCard
 import com.proudvocab.android.ui.components.SliderPreference
 import com.proudvocab.android.ui.components.SwitchPreference
+import kotlinx.coroutines.launch
 
 // ================================================================ appearance
 
@@ -106,16 +105,6 @@ fun AppearancePage(vm: SettingsViewModel, settings: AppSettings) {
                     subtitle = stringResource(R.string.settings_dynamic_color_desc),
                     checked = settings.dynamicColor,
                     onCheckedChange = vm::setDynamicColor
-                )
-                androidx.compose.material3.HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 18.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
-                )
-                SwitchPreference(
-                    title = stringResource(R.string.settings_animations),
-                    subtitle = stringResource(R.string.settings_animations_desc),
-                    checked = settings.animationsEnabled,
-                    onCheckedChange = vm::setAnimations
                 )
                 androidx.compose.material3.HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 18.dp),
@@ -210,7 +199,6 @@ fun LanguagesPage(vm: SettingsViewModel, settings: AppSettings) {
                     1 -> vm.setTranslationLanguage(code)
                     else -> vm.setAppLanguage(code)
                 }
-                pickerFor = null
             },
             reloadApp = which == 2
         )
@@ -222,12 +210,33 @@ private fun LanguagePickerDialog(
     title: String,
     selected: String,
     onDismiss: () -> Unit,
-    onSelect: (String) -> Unit,
+    onSelect: suspend (String) -> Unit,
     reloadApp: Boolean = false
 ) {
     val activity = com.proudvocab.android.LocalHostActivity.current
+    val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
-    val list = remember(query) { Languages.filtered(query) }
+    val systemLanguageName = stringResource(R.string.language_system_default)
+    val systemLanguageDescription = stringResource(R.string.language_system_desc)
+    val list = remember(query, reloadApp, systemLanguageName, systemLanguageDescription) {
+        val available = if (reloadApp) {
+            listOf(
+                AppLanguage("", systemLanguageName, systemLanguageDescription),
+                Languages.byCode("en"),
+                Languages.byCode("fa")
+            )
+        } else {
+            Languages.ALL
+        }
+        if (query.isBlank()) available else {
+            val q = query.trim()
+            available.filter {
+                it.code.startsWith(q, ignoreCase = true) ||
+                    it.englishName.contains(q, ignoreCase = true) ||
+                    it.nativeName.contains(q, ignoreCase = true)
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -248,11 +257,11 @@ private fun LanguagePickerDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 2.dp)
-                                .let { base ->
-                                    Modifier.clickable {
+                                .clickable {
+                                    scope.launch {
                                         onSelect(language.code)
-                                        if (reloadApp) activity.recreate()
-                                    }.then(base)
+                                        if (reloadApp) activity.recreate() else onDismiss()
+                                    }
                                 }
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -310,6 +319,22 @@ fun SubtitlesPage(vm: SettingsViewModel, settings: AppSettings) {
                     onValueChange = vm::setSubtitleOpacity,
                     display = "${(settings.subtitleBackgroundOpacity * 100).toInt()}%"
                 )
+                SliderPreference(
+                    title = stringResource(R.string.settings_sub_max_lines),
+                    value = settings.subtitleMaxLines.toFloat(),
+                    range = 1f..4f,
+                    steps = 2,
+                    onValueChange = { vm.setSubtitleMaxLines(it.toInt().coerceIn(1, 4)) },
+                    display = settings.subtitleMaxLines.toString()
+                )
+                SliderPreference(
+                    title = stringResource(R.string.player_delay),
+                    value = settings.subtitleDelayMs.toFloat(),
+                    range = -5_000f..5_000f,
+                    steps = 19,
+                    onValueChange = { vm.setSubtitleDelay(it.toLong()) },
+                    display = "${settings.subtitleDelayMs} ms"
+                )
                 SwitchPreference(
                     title = stringResource(R.string.settings_sub_dual),
                     subtitle = stringResource(R.string.settings_sub_dual_desc),
@@ -338,7 +363,8 @@ fun SubtitlesPage(vm: SettingsViewModel, settings: AppSettings) {
                     onCheckedChange = vm::setSubtitleShadowing
                 )
                 SwitchPreference(
-                    title = stringResource(R.string.player_translate_line),
+                    title = stringResource(R.string.settings_sub_auto_translate_lines),
+                    subtitle = stringResource(R.string.settings_sub_auto_translate_lines_desc),
                     checked = settings.subtitleTranslateWholeLine,
                     onCheckedChange = vm::setSubtitleTranslateWholeLine
                 )
@@ -407,7 +433,7 @@ fun TranslationPage(vm: SettingsViewModel, settings: AppSettings, state: Setting
                 )
                 SwitchPreference(
                     title = stringResource(R.string.settings_online_fallback),
-                    subtitle = stringResource(R.string.dict_offline_only_hint),
+                    subtitle = stringResource(R.string.settings_online_fallback_desc),
                     checked = settings.onlineFallback,
                     onCheckedChange = vm::setOnlineFallback
                 )
@@ -538,9 +564,7 @@ private fun ModelRow(
                         ModelState.Ready -> stringResource(R.string.offline_model_ready, language)
                         ModelState.Missing -> stringResource(R.string.offline_model_missing)
                         ModelState.Checking -> stringResource(R.string.loading)
-                        is ModelState.Downloading -> stringResource(
-                            R.string.offline_model_downloading, state.percent
-                        )
+                        ModelState.Downloading -> stringResource(R.string.offline_model_downloading)
                         is ModelState.Failed -> state.message
                         ModelState.Unknown -> stringResource(R.string.offline_model_missing)
                     },
@@ -548,10 +572,17 @@ private fun ModelRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            if (state == ModelState.Downloading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (state != ModelState.Ready) {
+            if (state == ModelState.Missing || state is ModelState.Failed) {
                 PrimaryButton(
                     text = stringResource(R.string.offline_model_download, language),
                     onClick = onDownload,
@@ -830,125 +861,43 @@ fun DataPage(vm: SettingsViewModel, settings: AppSettings) {
 // ============================================================= permissions
 
 @Composable
-fun PermissionsPage(vm: SettingsViewModel) {
-    val context = LocalContext.current
-    val activity = com.proudvocab.android.LocalHostActivity.current
-    var storageGranted by remember { mutableStateOf(checkStoragePermission(context)) }
-    var notificationsGranted by remember { mutableStateOf(checkNotificationPermission(context)) }
-
-    val storageLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted -> storageGranted = granted }
-
-    val notificationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted -> notificationsGranted = granted }
-
+fun PermissionsPage() {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
             SectionHeader(text = stringResource(R.string.settings_section_permissions))
             SettingsCard {
-                Text(
-                    text = stringResource(R.string.perm_intro),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)
-                )
-            }
-        }
-        item {
-            SectionHeader(text = stringResource(R.string.perm_storage_title))
-            SettingsCard {
-                PreferenceRow(
-                    title = stringResource(R.string.perm_storage_title),
-                    subtitle = stringResource(R.string.perm_storage_desc),
-                    onClick = {
-                        if (!storageGranted) {
-                            storageLauncher.launch(storagePermission())
-                        } else {
-                            openAppSettings(context)
-                        }
-                    },
-                    trailing = {
-                        Pill(
-                            text = stringResource(
-                                if (storageGranted) R.string.perm_status_granted
-                                else R.string.perm_status_denied
-                            ),
-                            color = if (storageGranted) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error
-                        )
-                    }
-                )
-            }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            item {
-                SectionHeader(text = stringResource(R.string.perm_notifications_title))
-                SettingsCard {
-                    PreferenceRow(
-                        title = stringResource(R.string.perm_notifications_title),
-                        subtitle = stringResource(R.string.perm_notifications_desc),
-                        onClick = {
-                            if (!notificationsGranted) {
-                                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            } else {
-                                openAppSettings(context)
-                            }
-                        },
-                        trailing = {
-                            Pill(
-                                text = stringResource(
-                                    if (notificationsGranted) R.string.perm_status_granted
-                                    else R.string.perm_status_denied
-                                ),
-                                color = if (notificationsGranted) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.error
-                            )
-                        }
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text(
+                        text = stringResource(R.string.perm_intro),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
         item {
-            SectionHeader(text = stringResource(R.string.perm_open_settings))
+            SectionHeader(text = stringResource(R.string.perm_storage_title))
             SettingsCard {
-                PreferenceRow(
-                    title = stringResource(R.string.perm_open_settings),
-                    subtitle = context.packageName,
-                    onClick = { openAppSettings(context) }
+                Text(
+                    text = stringResource(R.string.perm_storage_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(18.dp)
+                )
+            }
+        }
+        item {
+            SectionHeader(text = stringResource(R.string.perm_network_title))
+            SettingsCard {
+                Text(
+                    text = stringResource(R.string.perm_network_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(18.dp)
                 )
             }
         }
         item { Spacer(Modifier.height(120.dp)) }
-    }
-}
-
-private fun storagePermission(): String =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_VIDEO
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
-    }
-
-private fun checkStoragePermission(context: android.content.Context): Boolean =
-    ContextCompat.checkSelfPermission(context, storagePermission()) ==
-        PackageManager.PERMISSION_GRANTED
-
-private fun checkNotificationPermission(context: android.content.Context): Boolean =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        ContextCompat.checkSelfPermission(
-            context, Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-    } else true
-
-private fun openAppSettings(context: android.content.Context) {
-    runCatching {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.fromParts("package", context.packageName, null)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(intent)
     }
 }
 

@@ -1,2 +1,5 @@
-
-app/build/
+/app/build/
+/ci-logs/
+/build.log
+/test.log
+/lint.log

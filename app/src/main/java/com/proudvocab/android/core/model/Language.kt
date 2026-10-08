@@ -119,5 +119,5 @@ object Languages {
     }
 
     /** Languages the app interface itself has been translated into. */
-    val UI_LANGUAGES: List<String> = listOf("en", "fa", "tr", "de", "fr", "es", "ar")
+    val UI_LANGUAGES: List<String> = listOf("en", "fa")
 }

@@ -8,7 +8,6 @@ import com.proudvocab.android.core.dict.DictionaryManager
 import com.proudvocab.android.core.settings.AppSettings
 import com.proudvocab.android.core.settings.SettingsRepository
 import com.proudvocab.android.core.settings.TranslationEngine
-import kotlinx.coroutines.flow.first
 
 /**
  * Chooses between the online engine, the on-device ML Kit model and the plain
@@ -51,7 +50,7 @@ class TranslationManager(
 
         val settingsSnapshot = settings.snapshot()
         val chosen = engine ?: settingsSnapshot.engine()
-        val cacheKey = "$chosen|$source|$target|$trimmed"
+        val cacheKey = "$chosen|${settingsSnapshot.onlineFallback}|$source|$target|$trimmed"
         synchronized(cache) { cache[cacheKey] }?.let { return Result.success(it) }
 
         val result = runEngine(trimmed, source, target, chosen, settingsSnapshot)
@@ -66,35 +65,36 @@ class TranslationManager(
         engine: TranslationEngine,
         settings: AppSettings
     ): Result<TranslationResult> {
+        val onlineAvailable = isOnline()
         val order = when (engine) {
-            TranslationEngine.ONLINE -> listOf(TranslationEngine.ONLINE, TranslationEngine.OFFLINE, TranslationEngine.DICTIONARY)
-            TranslationEngine.OFFLINE -> listOf(TranslationEngine.OFFLINE, TranslationEngine.DICTIONARY)
+            TranslationEngine.AUTO -> if (onlineAvailable) {
+                listOf(TranslationEngine.ONLINE, TranslationEngine.OFFLINE, TranslationEngine.DICTIONARY)
+            } else {
+                listOf(TranslationEngine.OFFLINE, TranslationEngine.DICTIONARY)
+            }
+            TranslationEngine.ONLINE ->
+                listOf(TranslationEngine.ONLINE, TranslationEngine.OFFLINE, TranslationEngine.DICTIONARY)
+            TranslationEngine.OFFLINE -> if (settings.onlineFallback) {
+                listOf(TranslationEngine.OFFLINE, TranslationEngine.ONLINE, TranslationEngine.DICTIONARY)
+            } else {
+                listOf(TranslationEngine.OFFLINE, TranslationEngine.DICTIONARY)
+            }
             TranslationEngine.DICTIONARY -> listOf(TranslationEngine.DICTIONARY)
-            TranslationEngine.AUTO ->
-                if (isOnline()) listOf(
-                    TranslationEngine.ONLINE,
-                    TranslationEngine.OFFLINE,
-                    TranslationEngine.DICTIONARY
-                ) else listOf(
-                    TranslationEngine.OFFLINE,
-                    TranslationEngine.DICTIONARY
-                )
-        }.let { list ->
-            if (settings.onlineFallback) list else list.filter { it != TranslationEngine.DICTIONARY }
         }
 
         var lastError: Throwable? = null
         for (candidate in order) {
             val attempt = when (candidate) {
-                TranslationEngine.ONLINE -> if (isOnline()) {
+                TranslationEngine.ONLINE -> if (onlineAvailable) {
                     online.translate(text, source, target)
                 } else null
 
                 TranslationEngine.OFFLINE ->
                     if (offline.isSupported(target)) offline.translate(text, source, target) else null
 
-                TranslationEngine.DICTIONARY ->
-                    dictionaryTranslator.translate(text, target == "fa")
+                TranslationEngine.DICTIONARY -> if (supportsDictionaryPair(source, target)) {
+                    dictionaryTranslator.translate(text, target.equals("fa", ignoreCase = true))
+                } else null
 
                 TranslationEngine.AUTO -> null
             }
@@ -103,7 +103,15 @@ class TranslationManager(
                 attempt.onFailure { lastError = it }
             }
         }
-        return Result.failure(lastError ?: IllegalStateException("no translation engine available"))
+        return Result.failure(lastError ?: IllegalStateException("no translation engine available for this language pair"))
+    }
+
+    private fun supportsDictionaryPair(source: String, target: String): Boolean {
+        val from = source.lowercase().substringBefore('-')
+        val to = target.lowercase().substringBefore('-')
+        return (from == "en" && to == "fa") ||
+            (from == "fa" && to == "en") ||
+            (from == "auto" && (to == "fa" || to == "en"))
     }
 
     suspend fun wordInfo(word: String): Result<WordInfo> = online.wordInfo(word)

@@ -73,7 +73,6 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTheme(mode: ThemeMode) = update { it.copy(theme = mode.key) }
     suspend fun setDynamicColor(enabled: Boolean) = update { it.copy(dynamicColor = enabled) }
     suspend fun setAccent(hex: String?) = update { it.copy(accentHex = hex) }
-    suspend fun setAnimations(enabled: Boolean) = update { it.copy(animationsEnabled = enabled) }
 
     suspend fun completeOnboarding() = update { it.copy(onboardingCompleted = true) }
 

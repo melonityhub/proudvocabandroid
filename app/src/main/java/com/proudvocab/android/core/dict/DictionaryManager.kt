@@ -4,6 +4,9 @@ import android.content.Context
 import android.net.Uri
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -74,25 +77,38 @@ class DictionaryManager(private val context: Context) {
 
     /** Copies the file behind [uri] into the app and validates it. */
     suspend fun importDatabase(uri: Uri): Result<Long> = withContext(Dispatchers.IO) {
+        val tmp = File(dir, "import.tmp")
         runCatching {
-            val tmp = File(dir, "import.tmp")
+            tmp.delete()
             context.contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(tmp).use { output -> input.copyTo(output) }
             } ?: error("cannot open file")
-            val probe = FastdicDatabase.open(tmp.absolutePath)
-                ?: error("not a FastDic database")
-            val count = probe.countEnglish() + probe.countPersian()
-            probe.close()
-            if (importedFile.exists()) importedFile.delete()
-            tmp.renameTo(importedFile)
-            open(forceReload = true)
+
+            val count = FastdicDatabase.open(tmp.absolutePath)?.use { probe ->
+                probe.countEnglish() + probe.countPersian()
+            } ?: error("not a FastDic database")
+
+            try {
+                Files.move(
+                    tmp.toPath(),
+                    importedFile.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(tmp.toPath(), importedFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+            check(open(forceReload = true) != null) { "could not open imported dictionary" }
             count
+        }.onFailure {
+            tmp.delete()
         }
     }
 
-    suspend fun removeImported() = withContext(Dispatchers.IO) {
-        if (importedFile.exists()) importedFile.delete()
-        open(forceReload = true)
+    suspend fun removeImported(): Boolean = withContext(Dispatchers.IO) {
+        val deleted = !importedFile.exists() || importedFile.delete()
+        if (deleted) open(forceReload = true)
+        deleted
     }
 
     // ------------------------------------------------------------- lookups

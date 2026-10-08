@@ -122,6 +122,16 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setTab(tab: ReviewTab) = _uiState.update { it.copy(tab = tab) }
 
+    fun setNewLimit(value: Int) {
+        val bounded = value.coerceIn(5, 50)
+        viewModelScope.launch { settings.update { it.copy(newLimit = bounded) } }
+    }
+
+    fun setSessionLimit(value: Int) {
+        val bounded = value.coerceIn(5, 100)
+        viewModelScope.launch { settings.update { it.copy(sessionLimit = bounded) } }
+    }
+
     // ------------------------------------------------------------------ srs
 
     fun startSession() {

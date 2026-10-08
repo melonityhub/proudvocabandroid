@@ -50,6 +50,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,12 +82,23 @@ import com.proudvocab.android.ui.components.SectionHeader
 import com.proudvocab.android.ui.theme.rememberTargetStyle
 
 @Composable
-fun DictionaryScreen(onOpenWatch: () -> Unit) {
+fun DictionaryScreen(
+    initialQuery: String? = null,
+    onInitialQueryConsumed: () -> Unit = {}
+) {
     val deps = LocalDependencies.current
     val vm: DictionaryViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
     val settings by deps.settings.settings.collectAsStateWithLifecycle(AppSettings())
     var selectedWord by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(initialQuery) {
+        if (!initialQuery.isNullOrBlank()) {
+            vm.setTab(DictionaryTab.SEARCH)
+            vm.search(initialQuery)
+            onInitialQueryConsumed()
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         PrimaryTabRow(

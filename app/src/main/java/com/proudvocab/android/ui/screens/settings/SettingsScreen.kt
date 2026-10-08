@@ -121,7 +121,7 @@ fun SettingsScreen() {
                     SettingsPage.REVIEW -> ReviewSettingsPage(vm, settings)
                     SettingsPage.GAMES -> GamesSettingsPage(vm, settings)
                     SettingsPage.DATA -> DataPage(vm, settings)
-                    SettingsPage.PERMISSIONS -> PermissionsPage(vm)
+                    SettingsPage.PERMISSIONS -> PermissionsPage()
                     SettingsPage.ABOUT -> AboutPage()
                 }
             }

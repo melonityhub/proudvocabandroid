@@ -2,24 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!--
-        Permissions are requested only when the feature that needs them is used
-        (see ui/permissions/PermissionHelper.kt). Nothing is asked at startup.
-    -->
-
-    <!-- Online translation + online word info (dictionaryapi.dev) -->
+    <!-- Internet is used only by the selected online translation engine. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Needed so the app can decide between the online and the offline engine -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Pick a video from the media library (Android 13+) -->
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <!-- Pick a video from the media library (Android 12 and older) -->
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <!-- Progress notification while an offline translation model downloads -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+        Video and subtitle files are selected with ACTION_OPEN_DOCUMENT. The
+        system grants access only to the chosen URI, so broad storage/media and
+        notification permissions are intentionally not requested.
+    -->
 
     <uses-feature
         android:name="android.hardware.touchscreen"
@@ -36,7 +27,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ProudVocab"
-        tools:targetApi="34">
+        tools:targetApi="35">
 
         <activity
             android:name=".MainActivity"
@@ -50,25 +41,26 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Local MIME/URI handlers, not web App Links. -->
             <!-- "Open with ProudVocab" for local video files -->
-            <intent-filter>
+            <intent-filter tools:ignore="AppLinkUrlError">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="video/*" />
             </intent-filter>
 
             <!-- "Open with ProudVocab" for subtitle files -->
-            <intent-filter>
+            <intent-filter tools:ignore="AppLinkUrlError">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/x-subrip" />
             </intent-filter>
-            <intent-filter>
+            <intent-filter tools:ignore="AppLinkUrlError">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/vtt" />
             </intent-filter>
-            <intent-filter>
+            <intent-filter tools:ignore="AppLinkUrlError">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data

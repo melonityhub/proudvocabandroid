@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Keep the learner's own data (saved words, review schedule, settings) in the
-     automatic device backup. The (large, replaceable) dictionary database is
-     excluded so backups stay small. -->
+<!-- Back up learner data (saved words, review schedule, and settings). The
+     large, replaceable imported dictionary is intentionally left out. -->
 <full-backup-content>
     <include
         domain="database"
@@ -15,7 +14,4 @@
     <include
         domain="file"
         path="fonts" />
-    <exclude
-        domain="file"
-        path="dictionary" />
 </full-backup-content>

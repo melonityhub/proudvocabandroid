@@ -33,12 +33,18 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
                 val (text, locale) = pending.removeFirst()
                 speakNow(text, locale)
             }
+        } else {
+            // No engine: drop the backlog instead of queueing forever.
+            pending.clear()
         }
     }
 
     fun speak(text: String, languageCode: String) {
         val locale = runCatching { Locale.forLanguageTag(languageCode) }.getOrNull() ?: Locale.US
         if (!ready) {
+            // Keep only the most recent asks; the queue is flushed once the
+            // engine finishes initialising.
+            if (pending.size >= 8) pending.removeFirst()
             pending.addLast(text to locale)
             return
         }

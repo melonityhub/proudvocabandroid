@@ -310,14 +310,14 @@ fun SubtitlesPage(vm: SettingsViewModel, settings: AppSettings) {
                     value = settings.subtitlePositionBottom,
                     range = 0f..0.6f,
                     onValueChange = vm::setSubtitlePosition,
-                    display = "${(settings.subtitlePositionBottom * 100).toInt()}%"
+                    display = TextUtils.formatNumber((settings.subtitlePositionBottom * 100).toInt(), settings.usePersianDigits) + "%"
                 )
                 SliderPreference(
                     title = stringResource(R.string.settings_sub_bg_opacity),
                     value = settings.subtitleBackgroundOpacity,
                     range = 0f..1f,
                     onValueChange = vm::setSubtitleOpacity,
-                    display = "${(settings.subtitleBackgroundOpacity * 100).toInt()}%"
+                    display = TextUtils.formatNumber((settings.subtitleBackgroundOpacity * 100).toInt(), settings.usePersianDigits) + "%"
                 )
                 SliderPreference(
                     title = stringResource(R.string.settings_sub_max_lines),
@@ -325,7 +325,7 @@ fun SubtitlesPage(vm: SettingsViewModel, settings: AppSettings) {
                     range = 1f..4f,
                     steps = 2,
                     onValueChange = { vm.setSubtitleMaxLines(it.toInt().coerceIn(1, 4)) },
-                    display = settings.subtitleMaxLines.toString()
+                    display = TextUtils.formatNumber(settings.subtitleMaxLines, settings.usePersianDigits)
                 )
                 SliderPreference(
                     title = stringResource(R.string.player_delay),
@@ -333,7 +333,7 @@ fun SubtitlesPage(vm: SettingsViewModel, settings: AppSettings) {
                     range = -5_000f..5_000f,
                     steps = 19,
                     onValueChange = { vm.setSubtitleDelay(it.toLong()) },
-                    display = "${settings.subtitleDelayMs} ms"
+                    display = TextUtils.formatNumber(settings.subtitleDelayMs, settings.usePersianDigits) + " ms"
                 )
                 SwitchPreference(
                     title = stringResource(R.string.settings_sub_dual),
@@ -622,7 +622,7 @@ fun LearningPage(vm: SettingsViewModel, settings: AppSettings) {
                         range = 1f..10f,
                         steps = 8,
                         onValueChange = { vm.setRewindSeconds(it.toInt()) },
-                        display = "${settings.rewindSeconds}s"
+                        display = TextUtils.formatNumber(settings.rewindSeconds, settings.usePersianDigits) + "s"
                     )
                 }
                 SwitchPreference(
@@ -671,7 +671,7 @@ fun ReviewSettingsPage(vm: SettingsViewModel, settings: AppSettings) {
                     range = 5f..50f,
                     steps = 8,
                     onValueChange = { vm.setNewLimit(it.toInt()) },
-                    display = "${settings.newLimit}"
+                    display = TextUtils.formatNumber(settings.newLimit, settings.usePersianDigits)
                 )
                 SliderPreference(
                     title = stringResource(R.string.review_session_limit),
@@ -679,7 +679,7 @@ fun ReviewSettingsPage(vm: SettingsViewModel, settings: AppSettings) {
                     range = 5f..100f,
                     steps = 18,
                     onValueChange = { vm.setSessionLimit(it.toInt()) },
-                    display = "${settings.sessionLimit}"
+                    display = TextUtils.formatNumber(settings.sessionLimit, settings.usePersianDigits)
                 )
             }
         }

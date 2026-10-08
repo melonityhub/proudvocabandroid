@@ -166,15 +166,21 @@ fun DictionaryScreen(
     // `if` above just approved.
     val entry = state.entry
     val entryWord = state.entryWord
-    if (selectedWord != null && entry != null && entryWord == selectedWord) {
+    // The sheet opens as soon as the word is picked — while the entry is being
+    // read it shows a spinner, and when the word is simply not in the database
+    // it says so instead of doing nothing (which looked like a dead screen).
+    if (selectedWord != null && entryWord == selectedWord) {
         EntrySheet(
             entry = entry,
+            entryLoading = state.entryLoading,
             settings = settings,
             isSaved = state.savedWords.contains(entryWord),
             isFavourite = state.favourites.contains(entryWord),
             onDismiss = { selectedWord = null; vm.closeEntry() },
-            onSave = { vm.saveWord(entryWord, entry.shortGloss) },
-            onFavourite = { vm.toggleFavourite(entryWord) }
+            onSave = { vm.saveWord(entryWord, entry?.shortGloss.orEmpty()) },
+            onFavourite = { vm.toggleFavourite(entryWord) },
+            word = entryWord,
+            cefrFallback = deps.dictionary.cefr(entryWord)
         )
     }
 }
@@ -504,18 +510,22 @@ private fun WordsPane(
 @androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
 private fun EntrySheet(
-    entry: WordEntry,
+    entry: WordEntry?,
+    entryLoading: Boolean,
     settings: AppSettings,
     isSaved: Boolean,
     isFavourite: Boolean,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
-    onFavourite: () -> Unit
+    onFavourite: () -> Unit,
+    word: String,
+    cefrFallback: String? = null
 ) {
     val context = LocalContext.current
     val deps = LocalDependencies.current
     val speaker = remember { Speaker(context) }
     DisposableEffect(Unit) { onDispose { speaker.shutdown() } }
+    val headword = entry?.word ?: word
     val headwordStyle = rememberTargetStyle(StyleTarget.WORD_CARD, settings, deps.fonts)
     val translationStyle = rememberTargetStyle(StyleTarget.WORD_TRANSLATION, settings, deps.fonts)
 
@@ -532,11 +542,11 @@ private fun EntrySheet(
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = entry.word,
+                        text = headword,
                         style = headwordStyle.textStyle,
                         modifier = Modifier.weight(1f)
                     )
-                    CefrBadge(level = entry.cefr ?: deps.dictionary.cefr(entry.word))
+                    CefrBadge(level = entry?.cefr ?: cefrFallback)
                     Spacer(Modifier.width(8.dp))
                     IconButton(onClick = onFavourite) {
                         Icon(
@@ -547,12 +557,12 @@ private fun EntrySheet(
                         )
                     }
                 }
-                val phonetic = entry.phoneticUs ?: entry.phoneticUk
+                val phonetic = entry?.phoneticUs ?: entry?.phoneticUk
                 if (!phonetic.isNullOrBlank()) {
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
-                            onClick = { speaker.speak(entry.word, settings.learningLanguage) },
+                            onClick = { speaker.speak(headword, settings.learningLanguage) },
                             modifier = Modifier.size(34.dp)
                         ) {
                             Icon(Icons.AutoMirrored.Rounded.VolumeUp, null, tint = MaterialTheme.colorScheme.primary)
@@ -574,7 +584,41 @@ private fun EntrySheet(
                 Spacer(Modifier.height(16.dp))
             }
 
-            if (entry.meanings.isNotEmpty()) {
+            if (entryLoading) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.5.dp
+                        )
+                    }
+                }
+            } else if (entry == null) {
+                item {
+                    Column(modifier = Modifier.padding(vertical = 20.dp)) {
+                        Text(
+                            text = stringResource(R.string.dict_no_result),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.dict_no_result_body),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Everything below needs a resolved entry; loading and "not found"
+            // states are handled above.
+            if (entry != null && entry.meanings.isNotEmpty()) {
                 item { SectionHeader(text = stringResource(R.string.dict_meanings)) }
                 items(entry.meanings) { meaning ->
                     Row(
@@ -609,6 +653,7 @@ private fun EntrySheet(
                 }
             }
 
+            if (entry != null) {
             val forms = entry.forms.asPairs()
             if (forms.isNotEmpty()) {
                 item {
@@ -677,6 +722,7 @@ private fun EntrySheet(
                         )
                     }
                 }
+            }
             }
 
             item { Spacer(Modifier.height(60.dp)) }

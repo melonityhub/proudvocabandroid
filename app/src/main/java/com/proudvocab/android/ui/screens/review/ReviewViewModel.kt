@@ -257,6 +257,22 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.value = state.copy(gameWrong = state.gameWrong + 1)
     }
 
+    /**
+     * Scores a *correct* move without revealing anything.
+     *
+     * The matching game needs this too: `answer(word)` compares the word
+     * against `question.answer`, which for MATCH is the *translation*, so
+     * every correctly matched pair was graded as wrong, showed the red
+     * "the correct answer was…" panel and never scored.
+     */
+    fun recordCorrect() {
+        val state = _uiState.value
+        _uiState.value = state.copy(
+            gameCorrect = state.gameCorrect + 1,
+            gameScore = state.gameScore + 10
+        )
+    }
+
     fun nextQuestion() {
         val state = _uiState.value
         val next = state.gameIndex + 1

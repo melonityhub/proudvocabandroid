@@ -219,3 +219,55 @@ These cannot be proven from the code alone; run them once on a real device.
 - [ ] Import a custom font and confirm it is applied only to the chosen area.
 - [ ] Play each of the six games with a small deck (< 4 words) — the round
       builder pads options instead of crashing.
+
+---
+
+## 11. Fixed in 1.0.2 — second full review (crash + logic + UX)
+
+Found by re-reading every screen, the translation stack and the games against
+the code paths they actually run. The Persian-language version of this section,
+written for the project owner, is [`BUGFIXES-FA.md`](BUGFIXES-FA.md).
+
+### Crashes
+
+| Area | Defect | Fix |
+|---|---|---|
+| **Settings → Data** | `shareIntent` built the FileProvider authority from the *literal* string `"${context.packageName}.files"` (a `"$'}"` escaping bug), which no provider is registered under. `FileProvider.getUriForFile` threw `IllegalArgumentException` — **every JSON/Anki export from Settings crashed the app.** (The Archive screen's own copy was correct.) | Real string interpolation; export now shares through `${applicationId}.files` exactly like the archive path. |
+
+### Game logic
+
+| Area | Defect | Fix |
+|---|---|---|
+| **Matching game** | A correct pair called `answer(word)`, but for MATCH `question.answer` is the *translation* — every correct match was graded wrong, popped the red "the correct answer was…" panel and never scored. | New `ReviewViewModel.recordCorrect()` scores the pair without any reveal panel. |
+| **Matching game** | After matching all six pairs, the Next button advanced to "question 2 of 6" — the *same* board again (`matched` resets per question). The round was effectively unfinishable. | Completing the board finishes the round (`finishGame()`) and shows the summary. |
+
+### Offline translation
+
+| Area | Defect | Fix |
+|---|---|---|
+| **ML Kit** | `isDownloaded` only checked the *target* model. With only the target present, the engine looked "ready", and the first translation then silently downloaded the missing source model (tens of MB) mid-playback. `download`/`delete` also only handled one end of the pair. | Both models are now checked, downloaded and deleted together. |
+
+### Data
+
+| Area | Defect | Fix |
+|---|---|---|
+| **Archive import** | Importing a JSON backup from the Archive screen dropped `sourceTitle`, `cefr`, `phonetic` and `partOfSpeech` (the Settings copy of the same feature kept them). | All metadata fields round-trip on both paths. |
+| **Erase everything** | `study_days` survived the full wipe, so the streak and heat-map outlived "erase everything". | Study days are cleared too. |
+
+### UI/UX
+
+| Area | Defect | Fix |
+|---|---|---|
+| **Dictionary sheet** | Tapping a result opened the entry sheet only *after* a successful lookup; an unknown word (or a slow database) meant the tap did visibly nothing. | The sheet opens immediately: spinner while loading, a proper "no result" state when the word is unknown — save/favourite still work. |
+| **Font picker** | The font list inside the dialog had a hard `heightIn(max = 380.dp)` and no scrolling — devices with many font families simply could not reach the rest. | The list scrolls. |
+| **Settings sliders** | Subtitle position/opacity/max-lines/delay, SRS limits and rewind-seconds ignored the "Persian digits" setting. | All of them render through `TextUtils.formatNumber(…, usePersianDigits)`. |
+| **TTS queue** | If the TTS engine never initialises, spoken-word requests accumulated forever; every sheet also kept its queue after init failure. | Bounded queue (8) and dropped backlog on init failure. |
+
+### Verification status
+
+- [x] Unit tests extended suite still green (SRS, TextUtils, SubtitleParser,
+      GameEngine, DeckExporter, StylePrefs, resource contract).
+- [x] `assembleDebug`, `assembleRelease` (4 ABI splits, signature checked),
+      `testDebugUnitTest`, `lintDebug` — CI on this branch.
+- [ ] The manual on-device list above (unchanged — needs hardware).
+

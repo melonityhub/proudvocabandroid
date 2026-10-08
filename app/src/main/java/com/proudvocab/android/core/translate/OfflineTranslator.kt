@@ -39,31 +39,43 @@ class OfflineTranslator(private val context: Context) {
 
     fun isSupported(code: String): Boolean = normalize(code) in SUPPORTED
 
+    /**
+     * True when **both** models of the pair are on the device.
+     *
+     * ML Kit translates from a source model to a target model; checking only
+     * the target made the first translation silently download the missing
+     * source model (tens of MB) in the middle of playback.
+     */
     suspend fun isDownloaded(source: String, target: String): Boolean {
         val s = normalize(source)
         val t = normalize(target)
         downloadedCache[key(s, t)]?.let { return it }
         val ok = runCatching {
-            remoteModelManager.getDownloadedModels(TranslateRemoteModel::class.java)
+            val models = remoteModelManager.getDownloadedModels(TranslateRemoteModel::class.java)
                 .await()
-                .any { it.language == t }
+                .map { it.language }
+            models.contains(t) && models.contains(s)
         }.getOrDefault(false)
         downloadedCache[key(s, t)] = ok
         return ok
     }
 
-    /** Downloads the model for this pair. Call before the first translation. */
+    /** Downloads both models of this pair. Call before the first translation. */
     suspend fun download(source: String, target: String, requireWifi: Boolean = false): Result<Unit> =
         withContext(Dispatchers.IO) {
             val s = normalize(source)
             val t = normalize(target)
             setState(s, t, ModelState.Checking)
             runCatching {
-                val model = TranslateRemoteModel.Builder(t).build()
                 val conditions = DownloadConditions.Builder().apply {
                     if (requireWifi) requireWifi()
                 }.build()
-                remoteModelManager.download(model, conditions).awaitCompletion()
+                // Both ends of the pair are needed: a missing source model used
+                // to be fetched silently by the first translation instead.
+                for (code in linkedSetOf(s, t)) {
+                    val model = TranslateRemoteModel.Builder(code).build()
+                    remoteModelManager.download(model, conditions).awaitCompletion()
+                }
                 downloadedCache[key(s, t)] = true
                 setState(s, t, ModelState.Ready)
             }.onFailure {
@@ -71,10 +83,15 @@ class OfflineTranslator(private val context: Context) {
             }
         }
 
-    suspend fun deleteModel(target: String): Result<Unit> = withContext(Dispatchers.IO) {
+    /** Deletes both models of this pair. */
+    suspend fun deleteModel(source: String, target: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val s = normalize(source)
+        val t = normalize(target)
         runCatching {
-            val model = TranslateRemoteModel.Builder(normalize(target)).build()
-            remoteModelManager.deleteDownloadedModel(model).awaitCompletion()
+            for (code in linkedSetOf(s, t)) {
+                val model = TranslateRemoteModel.Builder(code).build()
+                remoteModelManager.deleteDownloadedModel(model).awaitCompletion()
+            }
             downloadedCache.clear()
         }
     }

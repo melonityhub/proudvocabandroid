@@ -29,6 +29,8 @@ data class DictionaryUiState(
     val suggestions: List<String> = emptyList(),
     val entry: WordEntry? = null,
     val entryWord: String = "",
+    /** True between opening a word and its entry resolving (or failing). */
+    val entryLoading: Boolean = false,
     val searching: Boolean = false,
     val offline: Boolean = true,
     val databaseWords: Long = 0L,
@@ -117,17 +119,18 @@ class DictionaryViewModel(application: Application) : AndroidViewModel(applicati
     fun open(result: DictSearchResult) = openWord(result.word)
 
     fun openWord(word: String) {
+        _uiState.updateSafely { it.copy(entry = null, entryWord = word, entryLoading = true) }
         viewModelScope.launch {
-            _uiState.updateSafely { it.copy(entry = null, entryWord = word) }
             val entry = dictionary.entry(word)
-            _uiState.updateSafely { it.copy(entry = entry) }
+            _uiState.updateSafely { it.copy(entry = entry, entryLoading = false) }
             if (entry != null || word.isNotBlank()) {
                 vocab.addHistory(word, _settings.value.learningLanguage)
             }
         }
     }
 
-    fun closeEntry() = _uiState.updateSafely { it.copy(entry = null, entryWord = "") }
+    fun closeEntry() =
+        _uiState.updateSafely { it.copy(entry = null, entryWord = "", entryLoading = false) }
 
     fun saveWord(word: String, translationText: String, kind: Int = WordKind.WORD.id) {
         viewModelScope.launch {

@@ -50,6 +50,46 @@ jobs:
           set -o pipefail
           ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon 2>&1 | tee test.log
 
+      - name: Lint
+        id: lint
+        if: always()
+        run: |
+          set -o pipefail
+          ./gradlew :app:lintDebug --stacktrace --no-daemon 2>&1 | tee lint.log
+
+      - name: Summarise lint findings
+        if: always()
+        run: |
+          python3 - <<'PY' || true
+          import collections
+          import os
+          import xml.etree.ElementTree as ET
+
+          path = 'app/build/reports/lint-results-debug.xml'
+          if not os.path.exists(path):
+              print('no lint report produced')
+              raise SystemExit
+
+          root = ET.parse(path).getroot()
+          counts = collections.Counter()
+          for issue in root.iter('issue'):
+              counts[(issue.get('severity'), issue.get('id'))] += 1
+
+          for (severity, issue_id), n in sorted(counts.items(), key=lambda kv: str(kv[0])):
+              print('%-8s %-40s x%d' % (severity, issue_id, n))
+
+          print('--- first 40 errors ---')
+          shown = 0
+          for issue in root.iter('issue'):
+              if issue.get('severity') in ('Error', 'Fatal') and shown < 40:
+                  loc = issue.find('location')
+                  where = ''
+                  if loc is not None:
+                      where = '%s:%s' % (loc.get('file', ''), loc.get('line', ''))
+                  print(issue.get('id'), where, (issue.get('message') or '')[:180])
+                  shown += 1
+          PY
+
       - name: Upload the debug APK
         if: steps.assemble.outcome == 'success'
         uses: actions/upload-artifact@v4
@@ -68,6 +108,7 @@ jobs:
           mkdir -p ci-logs
           [ -f build.log ] && cp build.log "ci-logs/build-${{ github.run_id }}-${{ github.run_attempt }}.log" || true
           [ -f test.log ] && cp test.log "ci-logs/test-${{ github.run_id }}-${{ github.run_attempt }}.log" || true
+          [ -f lint.log ] && cp lint.log "ci-logs/lint-${{ github.run_id }}-${{ github.run_attempt }}.log" || true
           git config user.name "Arena CI"
           git config user.email "ci@arena.ai"
           git add ci-logs

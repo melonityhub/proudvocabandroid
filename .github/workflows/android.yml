@@ -75,19 +75,36 @@ jobs:
           for issue in root.iter('issue'):
               counts[(issue.get('severity'), issue.get('id'))] += 1
 
+          summary_path = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary_path:
+              with open(summary_path, 'a', encoding='utf-8') as out:
+                  out.write('## Lint findings\n\n')
+                  out.write('| Severity | Issue | Count |\n|---|---|---:|\n')
+                  for (severity, issue_id), n in sorted(counts.items(), key=lambda kv: str(kv[0])):
+                      out.write(f'| {severity} | `{issue_id}` | {n} |\n')
+                  out.write('\n### Lint errors\n')
+
+          print('--- lint findings ---')
           for (severity, issue_id), n in sorted(counts.items(), key=lambda kv: str(kv[0])):
               print('%-8s %-40s x%d' % (severity, issue_id, n))
 
-          print('--- first 40 errors ---')
-          shown = 0
-          for issue in root.iter('issue'):
-              if issue.get('severity') in ('Error', 'Fatal') and shown < 40:
-                  loc = issue.find('location')
-                  where = ''
-                  if loc is not None:
-                      where = '%s:%s' % (loc.get('file', ''), loc.get('line', ''))
-                  print(issue.get('id'), where, (issue.get('message') or '')[:180])
-                  shown += 1
+          errors = [issue for issue in root.iter('issue')
+                    if issue.get('severity') in ('Error', 'Fatal')]
+          if not errors:
+              print('No lint errors.')
+          for issue in errors[:40]:
+              loc = issue.find('location')
+              where = ''
+              if loc is not None:
+                  where = '%s:%s' % (loc.get('file', ''), loc.get('line', ''))
+              issue_id = issue.get('id') or 'Lint'
+              message = issue.get('message') or ''
+              safe = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::error title=Lint {issue_id}::{safe}')
+              print(f'{issue_id} {where} {message}')
+              if summary_path:
+                  with open(summary_path, 'a', encoding='utf-8') as out:
+                      out.write(f'- **{issue_id}** at `{where}`: {message}\n')
           PY
 
       - name: Surface Gradle diagnostics

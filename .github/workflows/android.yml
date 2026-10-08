@@ -86,17 +86,36 @@ jobs:
             "$aapt2" dump badging "$apk" | grep -E '^(package|sdkVersion|targetSdkVersion|native-code)' || true
             vc="$("$aapt2" dump badging "$apk" | sed -n "s/^package:.*versionCode='\([0-9][0-9]*\)'.*/\1/p")"
             echo "versionCode=$vc"
+            case "$vc" in
+              ''|*[!0-9]*)
+                echo "::error::Could not read a numeric versionCode from $apk"
+                exit 1
+                ;;
+            esac
             version_codes["$apk"]="$vc"
+            echo "::notice::${apk}: versionCode=${vc}, size=$(du -h "$apk" | cut -f1)"
           done
 
           # Every split APK must carry a unique versionCode, otherwise the
           # per-ABI APKs could not be told apart (e.g. on Google Play).
           unique_codes="$(printf '%s\n' "${version_codes[@]}" | sort -u | wc -l)"
           echo "distinct versionCodes across the ${#expected[@]} APKs: $unique_codes"
+          echo "::notice::distinct versionCodes across the ${#expected[@]} APKs: $unique_codes"
           if [ "$unique_codes" -ne "${#expected[@]}" ]; then
             echo '::error::Every split APK must have a unique versionCode.'
             exit 1
           fi
+
+          # The per-ABI splits must be newer than the universal APK so that
+          # upgrading from the universal APK to a per-ABI APK always applies.
+          universal_code="${version_codes[app-universal-release.apk]}"
+          for apk in app-arm64-v8a-release.apk app-armeabi-v7a-release.apk app-x86_64-release.apk; do
+            split_code="${version_codes[$apk]}"
+            if [ "$split_code" -le "$universal_code" ]; then
+              echo "::error::$apk (versionCode=$split_code) must be newer than the universal APK (versionCode=$universal_code)."
+              exit 1
+            fi
+          done
 
           if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
             {
@@ -216,7 +235,7 @@ jobs:
           PY
 
       - name: Upload debug APKs
-        if: steps.assemble.outcome == 'success'
+        if: always() && steps.assemble.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: proudvocab-debug-apks
@@ -225,7 +244,7 @@ jobs:
           retention-days: 14
 
       - name: Upload release APK — arm64-v8a
-        if: steps.assemble.outcome == 'success'
+        if: always() && steps.assemble.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: proudvocab-release-arm64-v8a
@@ -234,7 +253,7 @@ jobs:
           retention-days: 30
 
       - name: Upload release APK — armeabi-v7a
-        if: steps.assemble.outcome == 'success'
+        if: always() && steps.assemble.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: proudvocab-release-armeabi-v7a
@@ -243,7 +262,7 @@ jobs:
           retention-days: 30
 
       - name: Upload release APK — x86_64
-        if: steps.assemble.outcome == 'success'
+        if: always() && steps.assemble.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: proudvocab-release-x86_64
@@ -252,7 +271,7 @@ jobs:
           retention-days: 30
 
       - name: Upload release APK — universal
-        if: steps.assemble.outcome == 'success'
+        if: always() && steps.assemble.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: proudvocab-release-universal

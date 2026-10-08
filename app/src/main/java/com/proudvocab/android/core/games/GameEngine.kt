@@ -138,8 +138,13 @@ object GameEngine {
 
     /** Replaces the word inside a sentence with a blank, keeping the case. */
     fun blankOut(sentence: String, word: String): String? {
-        val match = Regex("\\b${Regex.escape(word)}\\b", RegexOption.IGNORE_CASE)
-            .find(sentence) ?: return null
+        // UNICODE_CHARACTER_CLASS: without it \b only recognises ASCII word
+        // characters, so a Persian headword never matched inside its own
+        // sentence and the game silently produced no questions.
+        val match = Regex(
+            "\\b" + Regex.escape(word) + "\\b",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.UNICODE_CHARACTER_CLASS)
+        ).find(sentence) ?: return null
         val range = match.range
         return sentence.substring(0, range.first) + "____" +
             sentence.substring(range.last + 1)

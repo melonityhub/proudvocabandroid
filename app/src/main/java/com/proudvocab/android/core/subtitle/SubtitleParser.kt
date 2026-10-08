@@ -257,10 +257,13 @@ object SubtitleParser {
         val h = total / 3600L
         val m = (total % 3600L) / 60L
         val s = total % 60L
+        // Locale.US, not the default locale: on a Persian device the default
+        // formatter already emits Persian digits, which made the explicit
+        // mapping below a no-op and the "use Persian digits" switch dead.
         val out = if (h > 0) {
-            "%d:%02d:%02d".format(h, m, s)
+            String.format(java.util.Locale.US, "%d:%02d:%02d", h, m, s)
         } else {
-            "%d:%02d".format(m, s)
+            String.format(java.util.Locale.US, "%d:%02d", m, s)
         }
         return if (persianDigits) {
             out.map { if (it in '0'..'9') "۰۱۲۳۴۵۶۷۸۹"[it - '0'] else it }.joinToString("")

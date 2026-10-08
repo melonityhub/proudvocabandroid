@@ -89,8 +89,14 @@ class TranslationManager(
                     online.translate(text, source, target)
                 } else null
 
+                // Only if the model is *already* on the device: asking ML Kit
+                // to translate with a missing model makes it silently download
+                // a few tens of megabytes, which is never what "translate this
+                // subtitle line" should do.
                 TranslationEngine.OFFLINE ->
-                    if (offline.isSupported(target)) offline.translate(text, source, target) else null
+                    if (offline.isSupported(target) && offline.isDownloaded(source, target)) {
+                        offline.translate(text, source, target)
+                    } else null
 
                 TranslationEngine.DICTIONARY -> if (supportsDictionaryPair(source, target)) {
                     dictionaryTranslator.translate(text, target.equals("fa", ignoreCase = true))

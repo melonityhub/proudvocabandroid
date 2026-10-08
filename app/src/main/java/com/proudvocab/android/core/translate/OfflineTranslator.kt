@@ -24,8 +24,11 @@ import kotlinx.coroutines.withContext
 class OfflineTranslator(private val context: Context) {
 
     private val remoteModelManager by lazy { RemoteModelManager.getInstance() }
-    private val translators = HashMap<String, Translator>()
-    private val downloadedCache = HashMap<String, Boolean>()
+
+    // Both are touched from the translation pipeline and from the settings
+    // screen at the same time.
+    private val translators = java.util.concurrent.ConcurrentHashMap<String, Translator>()
+    private val downloadedCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
     private val _states = MutableStateFlow<Map<String, ModelState>>(emptyMap())
     val states: StateFlow<Map<String, ModelState>> = _states.asStateFlow()
@@ -124,6 +127,7 @@ class OfflineTranslator(private val context: Context) {
     fun closeAll() {
         translators.values.forEach { runCatching { it.close() } }
         translators.clear()
+        downloadedCache.clear()
     }
 
     companion object {

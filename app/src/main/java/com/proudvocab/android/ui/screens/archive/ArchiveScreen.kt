@@ -72,7 +72,11 @@ import com.proudvocab.android.core.util.TextUtils
 import com.proudvocab.android.ui.LocalDependencies
 import com.proudvocab.android.ui.components.CefrBadge
 import com.proudvocab.android.ui.components.EmptyState
+import com.proudvocab.android.ui.components.MessageBanner
+import com.proudvocab.android.ui.components.MessageTone
 import com.proudvocab.android.ui.components.Pill
+import com.proudvocab.android.ui.components.isErrorKey
+import com.proudvocab.android.ui.components.messageFor
 import com.proudvocab.android.ui.components.SectionHeader
 import com.proudvocab.android.ui.theme.rememberTargetStyle
 import java.text.SimpleDateFormat
@@ -105,7 +109,8 @@ fun ArchiveScreen() {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
+     Column(modifier = Modifier.fillMaxSize()) {
         // Search + actions
         Row(
             modifier = Modifier
@@ -191,8 +196,8 @@ fun ArchiveScreen() {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             TextButton(onClick = {
-                vm.exportAnki()?.let { intent ->
-                    exportLauncher.launch(Intent.createChooser(intent, null))
+                vm.exportAnki { intent ->
+                    intent?.let { exportLauncher.launch(Intent.createChooser(it, null)) }
                 }
             }) {
                 Icon(Icons.Rounded.FileDownload, null, Modifier.size(16.dp))
@@ -200,8 +205,8 @@ fun ArchiveScreen() {
                 Text(stringResource(R.string.archive_export_anki), fontSize = 12.sp)
             }
             TextButton(onClick = {
-                vm.exportJson()?.let { intent ->
-                    exportLauncher.launch(Intent.createChooser(intent, null))
+                vm.exportJson { intent ->
+                    intent?.let { exportLauncher.launch(Intent.createChooser(it, null)) }
                 }
             }) {
                 Icon(Icons.Rounded.FileDownload, null, Modifier.size(16.dp))
@@ -247,6 +252,18 @@ fun ArchiveScreen() {
                 }
                 item { Spacer(Modifier.height(120.dp)) }
             }
+        }
+     }
+
+        val bannerText = messageFor(state.message)
+        if (bannerText != null) {
+            MessageBanner(
+                text = bannerText,
+                tone = if (isErrorKey(state.message)) MessageTone.ERROR else MessageTone.INFO,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 20.dp, vertical = 26.dp)
+            )
         }
     }
 

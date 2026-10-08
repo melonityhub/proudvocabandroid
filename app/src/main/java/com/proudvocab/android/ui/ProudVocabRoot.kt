@@ -57,12 +57,19 @@ import kotlinx.coroutines.launch
 @Composable
 fun ProudVocabRoot(incomingIntent: Intent?) {
     val deps = LocalDependencies.current
-    val settings by deps.settings.settings.collectAsStateWithLifecycle(AppSettings())
+    // Nullable on purpose: the DataStore has not emitted yet on the very first
+    // frame, and the default `AppSettings()` claims the onboarding was never
+    // finished, which flashed the whole welcome flow at every cold start.
+    val settingsState by deps.settings.settings.collectAsStateWithLifecycle(
+        initialValue = null as AppSettings?
+    )
+    val settings = settingsState
     val scope = rememberCoroutineScope()
     val hostActivity = LocalHostActivity.current
     var playerFullscreen by rememberSaveable { mutableStateOf(false) }
     var dictionaryInitialQuery by rememberSaveable { mutableStateOf("") }
 
+    if (settings == null) return
     if (!settings.onboardingCompleted) {
         OnboardingScreen(onFinish = {
             scope.launch { deps.settings.completeOnboarding() }

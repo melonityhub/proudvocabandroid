@@ -161,15 +161,20 @@ fun DictionaryScreen(
         }
     }
 
-    if (selectedWord != null && state.entry != null && state.entryWord == selectedWord) {
+    // Captured once: `state` is a delegate, so re-reading it inside the sheet
+    // could hand `EntrySheet` a different (or null) entry than the one the
+    // `if` above just approved.
+    val entry = state.entry
+    val entryWord = state.entryWord
+    if (selectedWord != null && entry != null && entryWord == selectedWord) {
         EntrySheet(
-            entry = state.entry!!,
+            entry = entry,
             settings = settings,
-            isSaved = state.savedWords.contains(state.entryWord),
-            isFavourite = state.favourites.contains(state.entryWord),
+            isSaved = state.savedWords.contains(entryWord),
+            isFavourite = state.favourites.contains(entryWord),
             onDismiss = { selectedWord = null; vm.closeEntry() },
-            onSave = { vm.saveWord(state.entryWord, state.entry?.shortGloss.orEmpty()) },
-            onFavourite = { vm.toggleFavourite(state.entryWord) }
+            onSave = { vm.saveWord(entryWord, entry.shortGloss) },
+            onFavourite = { vm.toggleFavourite(entryWord) }
         )
     }
 }

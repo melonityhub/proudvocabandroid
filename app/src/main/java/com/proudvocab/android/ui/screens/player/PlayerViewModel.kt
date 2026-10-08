@@ -8,12 +8,11 @@ import java.io.IOException
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.proudvocab.android.ProudVocabApplication
-import com.proudvocab.android.core.data.SavedWord
 import com.proudvocab.android.core.dict.WordEntry
-import com.proudvocab.android.core.model.Languages
 import com.proudvocab.android.core.settings.AppSettings
 import com.proudvocab.android.core.settings.WordKind
 import com.proudvocab.android.core.subtitle.SubtitleCue
@@ -60,6 +59,12 @@ data class PlayerUiState(
     val delayMs: Long = 0L,
     val loadingSubtitle: Boolean = false,
     val subtitleError: String? = null,
+    /**
+     * Set when ExoPlayer gives up on the current file. Surfacing this is the
+     * difference between "the video silently does not play" and the learner
+     * being told why, with a retry button.
+     */
+    val playbackError: String? = null,
     val lookup: WordLookup? = null,
     val lineTranslations: Map<Int, String> = emptyMap(),
     val failedLineTranslations: Set<Int> = emptySet(),
@@ -69,7 +74,6 @@ data class PlayerUiState(
     val message: String? = null
 ) {
     val activeCue: SubtitleCue? get() = cues.getOrNull(activeIndex)
-    val shiftedCues: List<SubtitleCue> get() = SubtitleParser.shift(cues, delayMs)
 }
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
@@ -86,13 +90,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _settingsState = MutableStateFlow(AppSettings())
     val settingsState: StateFlow<AppSettings> = _settingsState.asStateFlow()
 
-    private var exoPlayer: ExoPlayer? = null
+    /**
+     * The cues as the player sees them, i.e. shifted by the subtitle delay.
+     * Recomputing the whole list on every access (the position poller touches
+     * it several times per tick) is needless garbage for a 2 000-cue movie, so
+     * it is memoised and only rebuilt when the cues or the delay change.
+     */
+    private val _shiftedCues = MutableStateFlow<List<SubtitleCue>>(emptyList())
+    val shiftedCues: StateFlow<List<SubtitleCue>> = _shiftedCues.asStateFlow()
+
+    private var released = false
     private var positionJob: Job? = null
     private var subtitleLoadJob: Job? = null
     private var subtitleLoadRequestId = 0L
     private var translationJob: Job? = null
     private var translationRequestId = 0L
     private var lookupJob: Job? = null
+    private var restoreAttempted = false
     private val translationCache = object : LinkedHashMap<String, String>(256, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>): Boolean =
             size > 256
@@ -104,7 +118,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
-            val current = exoPlayer ?: return
+            val current = playerOrNull ?: return
             _uiState.update {
                 it.copy(
                     durationMs = current.duration.coerceAtLeast(0L),
@@ -112,13 +126,49 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 )
             }
         }
+
+        override fun onPlayerError(error: PlaybackException) {
+            // Without this the learner taps a video and simply nothing happens.
+            _uiState.update {
+                it.copy(
+                    isPlaying = false,
+                    playbackError = describeError(error)
+                )
+            }
+        }
     }
 
-    val player: ExoPlayer
-        get() = exoPlayer ?: ExoPlayer.Builder(getApplication()).build().also {
-            it.addListener(playbackListener)
-            exoPlayer = it
-        }
+    /**
+     * Created once, on the main thread, together with the ViewModel — never
+     * lazily from a composable. A getter that builds a fresh player whenever
+     * the field is null could hand out a player after [onCleared] released the
+     * real one, and that one would never be released.
+     */
+    private val exoPlayer: ExoPlayer = ExoPlayer.Builder(application).build()
+        .apply { addListener(playbackListener) }
+
+    /** The player for [androidx.media3.ui.PlayerView]; null once released. */
+    val playerOrNull: ExoPlayer?
+        get() = if (released) null else exoPlayer
+
+    private fun describeError(error: PlaybackException): String = when (error.errorCode) {
+        PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "file_not_found"
+        PlaybackException.ERROR_CODE_IO_NO_PERMISSION,
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "no_access"
+
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+        PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
+        PlaybackException.ERROR_CODE_DECODING_FAILED,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES -> "unsupported"
+
+        else -> "code_" + error.errorCode
+    }
+
+    private fun describeError(error: Throwable): String =
+        (error as? PlaybackException)?.let { describeError(it) }
+            ?: error.javaClass.simpleName
 
     private fun cancelLineTranslation() {
         translationRequestId += 1L
@@ -151,6 +201,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+        // Rebuild the shifted cue list only when its inputs actually change.
+        viewModelScope.launch {
+            _uiState.collect { state ->
+                val next = SubtitleParser.shift(state.cues, state.delayMs)
+                if (next != _shiftedCues.value) _shiftedCues.value = next
+            }
+        }
         startPositionPolling()
     }
 
@@ -160,12 +217,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         positionJob?.cancel()
         positionJob = viewModelScope.launch {
             while (true) {
-                val p = exoPlayer
+                val p = playerOrNull
                 if (p != null) {
                     val pos = p.currentPosition
                     val state = _uiState.value
-                    val index = SubtitleParser.cueIndexAt(state.shiftedCues, pos)
-                    val previousCue = state.shiftedCues.getOrNull(state.activeIndex)
+                    val cues = _shiftedCues.value
+                    val index = SubtitleParser.cueIndexAt(cues, pos)
+                    val previousCue = cues.getOrNull(state.activeIndex)
                     if (_settingsState.value.subtitleShadowing && previousCue != null &&
                         pos >= previousCue.endMs && p.isPlaying
                     ) {
@@ -200,12 +258,53 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun openVideo(context: Context, uri: Uri, title: String? = null) {
+    /**
+     * Re-opens the video and subtitle the learner used last time.
+     *
+     * The URIs are remembered in settings, but reading them back needs the
+     * persistable grant that was taken when they were first picked; a file on
+     * an SD card that has since been removed, or a provider that never offered
+     * persistable grants, simply reports "open it again" instead of failing
+     * quietly with a black screen.
+     */
+    fun restoreLastMedia() {
+        if (restoreAttempted) return
+        restoreAttempted = true
+        if (_uiState.value.videoUri != null) return
+        viewModelScope.launch {
+            val snapshot = settings.snapshot()
+            val video = snapshot.lastVideoUri.takeIf { it.isNotBlank() }
+            val subtitle = snapshot.lastSubtitleUri.takeIf { it.isNotBlank() }
+            if (video == null && subtitle == null) return@launch
+            val context: Context = getApplication()
+            if (video != null) {
+                val uri = runCatching { Uri.parse(video) }.getOrNull()
+                if (uri != null && canRead(context, uri)) {
+                    openVideo(context, uri, rememberTitle = false)
+                } else {
+                    settings.update { s -> s.copy(lastVideoUri = "") }
+                    _uiState.update { it.copy(message = "restore_video_failed") }
+                }
+            }
+            if (subtitle != null) {
+                val uri = runCatching { Uri.parse(subtitle) }.getOrNull()
+                if (uri != null && canRead(context, uri)) {
+                    loadSubtitle(context, uri)
+                } else {
+                    settings.update { s -> s.copy(lastSubtitleUri = "") }
+                    _uiState.update { it.copy(message = "restore_subtitle_failed") }
+                }
+            }
+        }
+    }
+
+    private fun canRead(context: Context, uri: Uri): Boolean = runCatching {
+        context.contentResolver.openInputStream(uri)?.use { true } ?: false
+    }.getOrDefault(false)
+
+    fun openVideo(context: Context, uri: Uri, title: String? = null, rememberTitle: Boolean = true) {
         cancelLineTranslation()
-        val p = player
-        p.setMediaItem(MediaItem.fromUri(uri))
-        p.prepare()
-        p.playWhenReady = true
+        val p = playerOrNull ?: return
         _uiState.update {
             it.copy(
                 videoUri = uri,
@@ -213,6 +312,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 activeIndex = -1,
                 positionMs = 0L,
                 durationMs = 0L,
+                playbackError = null,
                 lineTranslations = emptyMap(),
                 failedLineTranslations = emptySet(),
                 translatingLine = false,
@@ -220,7 +320,27 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 message = null
             )
         }
-        viewModelScope.launch { settings.update { s -> s.copy(lastVideoUri = uri.toString()) } }
+        runCatching {
+            p.setMediaItem(MediaItem.fromUri(uri))
+            p.prepare()
+            p.playWhenReady = true
+        }.onFailure { error ->
+            _uiState.update { it.copy(playbackError = describeError(error)) }
+        }
+        if (rememberTitle) {
+            viewModelScope.launch { settings.update { s -> s.copy(lastVideoUri = uri.toString()) } }
+        }
+    }
+
+    /** Re-prepares the file that is already loaded — the "Try again" button. */
+    fun retryPlayback() {
+        val uri = _uiState.value.videoUri ?: return
+        openVideo(getApplication(), uri, title = _uiState.value.videoTitle, rememberTitle = false)
+    }
+
+    /** Called when the player screen leaves the composition (tab switch, back). */
+    fun pauseForLeave() {
+        runCatching { playerOrNull?.pause() }
     }
 
     fun loadSubtitle(context: Context, uri: Uri) {
@@ -291,27 +411,31 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun togglePlay() {
-        val p = player
+        val p = playerOrNull ?: return
+        if (_uiState.value.playbackError != null) {
+            retryPlayback()
+            return
+        }
         if (p.isPlaying) p.pause() else p.play()
         _uiState.update { it.copy(isPlaying = p.isPlaying) }
     }
 
     fun seekBy(deltaMs: Long) {
-        val p = player
+        val p = playerOrNull ?: return
         val target = (p.currentPosition + deltaMs).coerceAtLeast(0L)
         p.seekTo(if (p.duration > 0L) target.coerceAtMost(p.duration) else target)
     }
 
     fun seekTo(positionMs: Long) {
-        val p = player
+        val p = playerOrNull ?: return
         val position = positionMs.coerceAtLeast(0L)
         p.seekTo(if (p.duration > 0L) position.coerceAtMost(p.duration) else position)
     }
 
     fun seekToCue(index: Int) {
-        val cues = _uiState.value.shiftedCues
+        val cues = _shiftedCues.value
         val cue = cues.getOrNull(index) ?: return
-        player.seekTo(cue.startMs)
+        playerOrNull?.seekTo(cue.startMs)
         _uiState.update { it.copy(activeIndex = index, positionMs = cue.startMs) }
     }
 
@@ -323,13 +447,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun repeatCue() {
         val cue = _uiState.value.activeCue ?: return
-        player.seekTo(cue.startMs)
-        if (!player.isPlaying) player.play()
+        val p = playerOrNull ?: return
+        p.seekTo(cue.startMs)
+        if (!p.isPlaying) p.play()
     }
 
     fun setSpeed(value: Float) {
         val bounded = value.coerceIn(0.25f, 3f)
-        player.setPlaybackSpeed(bounded)
+        playerOrNull?.setPlaybackSpeed(bounded)
         _uiState.update { it.copy(speed = bounded) }
     }
 
@@ -356,7 +481,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun translateLine(index: Int) {
         val state = _uiState.value
-        val cue = state.shiftedCues.getOrNull(index) ?: return
+        val cue = _shiftedCues.value.getOrNull(index) ?: return
         if (state.lineTranslations[index] != null || state.translatingLineIndex == index) return
 
         cancelLineTranslation()
@@ -400,7 +525,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 latestSettings.translationLanguage != s.translationLanguage ||
                 latestSettings.translationEngine != s.translationEngine ||
                 latestSettings.onlineFallback != s.onlineFallback ||
-                _uiState.value.shiftedCues.getOrNull(index)?.text != cue.text
+                _shiftedCues.value.getOrNull(index)?.text != cue.text
             ) return@launch
 
             result.fold(
@@ -472,7 +597,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 )
             }
-            if (s.autoPauseOnLookup) player.pause()
+            if (s.autoPauseOnLookup) playerOrNull?.pause()
 
             // Fetch rich dictionary data independently, but always ask the
             // selected translation engine for the translation itself.
@@ -565,6 +690,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     partOfSpeech = lookup.entry?.meanings?.firstOrNull()?.posNameEn.orEmpty(),
                     kind = lookup.kind
                 )
+                vocab.recordStudy(newWords = 1)
                 _uiState.update {
                     it.copy(
                         lookup = it.lookup?.copy(saved = true, tags = savedWord.tagsList),
@@ -606,12 +732,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast(':') ?: "media"
 
     override fun onCleared() {
+        released = true
         positionJob?.cancel()
         subtitleLoadJob?.cancel()
         translationJob?.cancel()
         lookupJob?.cancel()
-        runCatching { exoPlayer?.release() }
-        exoPlayer = null
+        exoPlayer.removeListener(playbackListener)
+        runCatching { exoPlayer.release() }
         super.onCleared()
     }
 

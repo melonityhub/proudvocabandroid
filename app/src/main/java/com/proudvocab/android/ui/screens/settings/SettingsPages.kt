@@ -392,7 +392,6 @@ fun SubtitlesPage(vm: SettingsViewModel, settings: AppSettings) {
 
 @Composable
 fun TranslationPage(vm: SettingsViewModel, settings: AppSettings, state: SettingsUiState) {
-    val context = LocalContext.current
     val dictionaryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { vm.importDictionary(it) } }

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -419,7 +421,15 @@ private fun FontPickerDialog(
     onDelete: (String) -> Unit
 ) {
     val deps = LocalDependencies.current
-    val options = remember(fontsVersion) { deps.fonts.all() }
+    // Enumerating the device fonts touches the filesystem, so it happens off
+    // the UI thread instead of inside `remember` during composition.
+    var options by remember { mutableStateOf<List<FontOption>>(emptyList()) }
+    var loadingFonts by remember { mutableStateOf(true) }
+    LaunchedEffect(fontsVersion) {
+        loadingFonts = true
+        options = deps.fonts.allAsync()
+        loadingFonts = false
+    }
     var query by rememberSaveable { mutableStateOf("") }
 
     val filtered = remember(options, query) {
@@ -464,6 +474,16 @@ private fun FontPickerDialog(
                     }
                 }
                 Spacer(Modifier.height(10.dp))
+                if (loadingFonts) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
+                }
                 Column(modifier = Modifier.heightIn(max = 380.dp)) {
                     grouped.forEach { (group, items) ->
                         Text(

@@ -79,6 +79,19 @@
     <string name="player_grant">دادن دسترسی</string>
     <string name="player_loading_subtitle">در حال خواندن زیرنویس…</string>
     <string name="player_subtitle_failed">این فایل زیرنویس خوانده نشد</string>
+    <string name="player_error_title">پخش این ویدیو ممکن نیست</string>
+    <string name="player_error_body">اندروید نتوانست این فایل را باز یا رمزگشایی کند. ممکن است فرمت یا کدک پشتیبانی نشود، فایل آسیب دیده باشد، یا دسترسی برنامه به آن از بین رفته باشد.</string>
+    <string name="player_error_reason">علت: %1$s</string>
+    <string name="player_error_retry">تلاش دوباره</string>
+    <string name="player_error_choose">انتخاب ویدیوی دیگر</string>
+    <string name="player_restore_failed">ویدیوی قبلی دوباره باز نشد — یک بار دیگر انتخابش کن.</string>
+    <string name="player_subtitle_restore_failed">زیرنویس قبلی دوباره باز نشد — یک بار دیگر انتخابش کن.</string>
+
+    <string name="settings_font_ok">فونت اضافه شد</string>
+    <string name="settings_font_fail">این فایل یک فونت قابل استفاده نیست</string>
+    <string name="settings_dictionary_ok">دیکشنری وارد شد</string>
+    <string name="settings_dictionary_fail">این فایل دیکشنری FastDic نیست</string>
+    <string name="archive_imported_ok">پشتیبان وارد شد</string>
 
     <!-- ============================ دیکشنری ============================ -->
     <string name="dict_search_hint">جست‌وجوی لغت…</string>
@@ -198,7 +211,7 @@
     <string name="archive_import_json">درون‌ریزی JSON</string>
     <string name="archive_empty_title">لغتی ذخیره نشده</string>
     <string name="archive_empty_body">هنگام تماشا روی هر لغت بزن تا به فهرستت اضافه شود.</string>
-    <string name="archive_count">%1$d لغت</string>
+    <string name="archive_count">%1$s لغت</string>
     <string name="archive_add_tag">افزودن برچسب</string>
     <string name="archive_delete_confirm_title">این لغت حذف شود؟</string>
     <string name="archive_delete_confirm_body">«%1$s» از فهرستت حذف می‌شود.</string>

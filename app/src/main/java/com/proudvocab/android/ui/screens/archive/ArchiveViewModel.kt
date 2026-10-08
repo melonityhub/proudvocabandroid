@@ -12,10 +12,12 @@ import com.proudvocab.android.core.export.DeckExporter
 import com.proudvocab.android.core.settings.AppSettings
 import com.proudvocab.android.core.settings.WordKind
 import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class SortMode { NEWEST, OLDEST, ALPHA, LEVEL }
 enum class FilterMode { ALL, IDIOM, PHRASAL, LEARNED }
@@ -116,18 +118,24 @@ class ArchiveViewModel(application: Application) : AndroidViewModel(application)
 
     // ------------------------------------------------------------- export
 
-    fun exportJson(): Intent? {
+    fun exportJson(onReady: (Intent?) -> Unit) {
         val words = _uiState.value.visible
-        val file = writeExport("proudvocab-words.json", DeckExporter.toJson(words))
-            ?: return null
-        return shareIntent(file, "application/json")
+        viewModelScope.launch {
+            val file = withContext(Dispatchers.IO) {
+                writeExport("proudvocab-words.json", DeckExporter.toJson(words))
+            }
+            onReady(file?.let { shareIntent(it, "application/json") })
+        }
     }
 
-    fun exportAnki(): Intent? {
+    fun exportAnki(onReady: (Intent?) -> Unit) {
         val words = _uiState.value.visible
-        val file = writeExport("proudvocab-anki.csv", DeckExporter.toAnkiCsv(words))
-            ?: return null
-        return shareIntent(file, "text/csv")
+        viewModelScope.launch {
+            val file = withContext(Dispatchers.IO) {
+                writeExport("proudvocab-anki.csv", DeckExporter.toAnkiCsv(words))
+            }
+            onReady(file?.let { shareIntent(it, "text/csv") })
+        }
     }
 
     private fun writeExport(name: String, content: String): File? = runCatching {
@@ -151,24 +159,33 @@ class ArchiveViewModel(application: Application) : AndroidViewModel(application)
 
     // ------------------------------------------------------------- import
 
-    fun importJson(uri: Uri): Int {
-        val context = getApplication<Application>()
-        val text = runCatching {
-            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-        }.getOrNull() ?: run {
-            _uiState.set { it.copy(message = "read_error") }
-            return 0
-        }
-        val words = DeckExporter.fromJson(text.orEmpty())
-        if (words.isEmpty()) {
-            _uiState.set { it.copy(message = "parse_error") }
-            return 0
-        }
+    fun importJson(uri: Uri) {
         viewModelScope.launch {
-            words.forEach { vocab.save(it.word, it.language, it.translation, it.contextSentence, kind = it.kind, tags = it.tags) }
+            val context = getApplication<Application>()
+            // Reading a backup file is disk I/O; it used to happen on the UI
+            // thread straight from the picker callback.
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                }.getOrNull()
+            }
+            if (text == null) {
+                _uiState.set { it.copy(message = "read_error") }
+                return@launch
+            }
+            val words = withContext(Dispatchers.Default) { DeckExporter.fromJson(text) }
+            if (words.isEmpty()) {
+                _uiState.set { it.copy(message = "parse_error") }
+                return@launch
+            }
+            words.forEach {
+                vocab.save(
+                    it.word, it.language, it.translation, it.contextSentence,
+                    kind = it.kind, tags = it.tags
+                )
+            }
             _uiState.set { it.copy(message = "imported") }
         }
-        return words.size
     }
 
     fun consumeMessage() = _uiState.set { it.copy(message = null) }

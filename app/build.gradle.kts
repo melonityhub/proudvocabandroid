@@ -40,8 +40,13 @@ android {
     val envKeystore = System.getenv("PV_KEYSTORE_FILE")
     val envKeystoreReady = !envKeystore.isNullOrBlank() && file(envKeystore).exists()
 
-    val repoKeystoreFile = file("keystore/release.keystore")
-    val repoKeystoreProps = file("keystore/release.properties")
+    // rootProject, not `file(...)`: a module build script resolves relative
+    // paths against `app/`, and `app/keystore/` does not exist. That silently
+    // made `repoKeystoreReady` false, so every release fell through to the
+    // *debug* signing config — a fresh key on each CI runner, which means no
+    // published APK could ever install over the previous one.
+    val repoKeystoreFile = rootProject.file("keystore/release.keystore")
+    val repoKeystoreProps = rootProject.file("keystore/release.properties")
     val repoKeystoreReady = repoKeystoreFile.exists() && repoKeystoreProps.exists()
 
     signingConfigs {
@@ -81,13 +86,12 @@ android {
             signingConfig = when {
                 envKeystoreReady -> signingConfigs.getByName("upload")
                 repoKeystoreReady -> signingConfigs.getByName("repoRelease")
-                else -> {
-                    logger.warn(
-                        "ProudVocab: no release keystore available — signing the release " +
-                            "build with the debug config (unstable signature on CI runners)."
-                    )
-                    signingConfigs.getByName("debug")
-                }
+                else -> error(
+                    "ProudVocab: no release keystore. Looked for $repoKeystoreFile and " +
+                        "\$PV_KEYSTORE_FILE. Refusing to fall back to the debug key: a debug " +
+                        "signature is generated per CI runner, so the APK would not install " +
+                        "over any previous release."
+                )
             }
         }
     }

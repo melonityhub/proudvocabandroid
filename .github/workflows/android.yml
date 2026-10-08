@@ -17,6 +17,8 @@ jobs:
     name: Build (debug APK)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -36,12 +38,20 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Compile and assemble the debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+        id: assemble
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
 
       - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon
+        id: test
+        if: always()
+        run: |
+          set -o pipefail
+          ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon 2>&1 | tee test.log
 
       - name: Upload the debug APK
+        if: steps.assemble.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: proudvocab-debug
@@ -49,11 +59,21 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload test reports
+      - name: Publish the build logs
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-reports
-          path: app/build/reports/tests/
-          if-no-files-found: ignore
-          retention-days: 7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          mkdir -p ci-logs
+          [ -f build.log ] && cp build.log "ci-logs/build-${{ github.run_id }}-${{ github.run_attempt }}.log" || true
+          [ -f test.log ] && cp test.log "ci-logs/test-${{ github.run_id }}-${{ github.run_attempt }}.log" || true
+          git config user.name "Arena CI"
+          git config user.email "ci@arena.ai"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "ci: publish build logs for run ${{ github.run_id }} [skip ci]"
+          git push origin "HEAD:${{ github.ref_name }}"

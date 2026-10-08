@@ -85,6 +85,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
 import com.proudvocab.android.R
 import com.proudvocab.android.core.settings.AppSettings
@@ -296,6 +297,7 @@ fun PlayerScreen(
 
 // ------------------------------------------------------------------- video
 
+@OptIn(UnstableApi::class)
 @Composable
 private fun VideoSurface(vm: PlayerViewModel, modifier: Modifier = Modifier) {
     AndroidView(

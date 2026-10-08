@@ -81,10 +81,12 @@ jobs:
           echo "using aapt2: $aapt2"
 
           declare -A version_codes=()
+          declare -A native_codes=()
           for apk in "${expected[@]}"; do
             echo "== $apk =="
-            "$aapt2" dump badging "$apk" | grep -E '^(package|sdkVersion|targetSdkVersion|native-code)' || true
-            vc="$("$aapt2" dump badging "$apk" | sed -n "s/^package:.*versionCode='\([0-9][0-9]*\)'.*/\1/p")"
+            badging="$("$aapt2" dump badging "$apk")"
+            echo "$badging" | grep -E '^(package|sdkVersion|targetSdkVersion|native-code)' || true
+            vc="$(echo "$badging" | sed -n "s/^package:.*versionCode='\([0-9][0-9]*\)'.*/\1/p")"
             echo "versionCode=$vc"
             case "$vc" in
               ''|*[!0-9]*)
@@ -94,6 +96,28 @@ jobs:
             esac
             version_codes["$apk"]="$vc"
             echo "::notice::${apk}: versionCode=${vc}, size=$(du -h "$apk" | cut -f1)"
+
+            # A per-ABI split that bundles native libraries must bundle them
+            # for its own architecture only.
+            case "$apk" in
+              app-arm64-v8a-release.apk) want_abi='arm64-v8a' ;;
+              app-armeabi-v7a-release.apk) want_abi='armeabi-v7a' ;;
+              app-x86_64-release.apk) want_abi='x86_64' ;;
+              *) want_abi='' ;;
+            esac
+            native_line="$(echo "$badging" | grep '^native-code:' || true)"
+            native_codes["$apk"]="${native_line:-none}"
+            if [ -n "$want_abi" ]; then
+              if [ -n "$native_line" ]; then
+                if ! echo "$native_line" | grep -q "'$want_abi'"; then
+                  echo "::error::$apk ships native libraries for [$native_line] but should ship '$want_abi'."
+                  exit 1
+                fi
+                echo "::notice::${apk}: $native_line"
+              else
+                echo "::notice::${apk}: no native libraries bundled"
+              fi
+            fi
           done
 
           # Every split APK must carry a unique versionCode, otherwise the
@@ -121,11 +145,11 @@ jobs:
             {
               echo '## Release APKs (ABI splits)'
               echo ''
-              echo '| APK | Size | versionCode |'
-              echo '|---|---:|---:|'
+              echo '| APK | Size | versionCode | Native code |'
+              echo '|---|---:|---:|:---|'
               for apk in "${expected[@]}"; do
                 size="$(du -h "$apk" | cut -f1)"
-                echo "| \`$apk\` | $size | ${version_codes[$apk]} |"
+                echo "| \`$apk\` | $size | ${version_codes[$apk]} | ${native_codes[$apk]} |"
               done
               echo ''
             } >> "$GITHUB_STEP_SUMMARY"

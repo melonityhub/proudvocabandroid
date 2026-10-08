@@ -29,12 +29,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
@@ -230,15 +233,19 @@ private fun SrsHome(
                     modifier = Modifier.weight(1f),
                     label = stringResource(R.string.review_new_limit),
                     value = settings.newLimit,
+                    minValue = 5,
+                    maxValue = 50,
                     persianDigits = persian,
-                    onChange = { }
+                    onChange = vm::setNewLimit
                 )
                 StepperCard(
                     modifier = Modifier.weight(1f),
                     label = stringResource(R.string.review_session_limit),
                     value = settings.sessionLimit,
+                    minValue = 5,
+                    maxValue = 100,
                     persianDigits = persian,
-                    onChange = { }
+                    onChange = vm::setSessionLimit
                 )
             }
         }
@@ -290,6 +297,8 @@ private fun StatCard(
 private fun StepperCard(
     label: String,
     value: Int,
+    minValue: Int,
+    maxValue: Int,
     persianDigits: Boolean,
     onChange: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -300,14 +309,38 @@ private fun StepperCard(
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = TextUtils.formatNumber(value, persianDigits),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { onChange((value - 1).coerceAtLeast(minValue)) },
+                    enabled = value > minValue
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Remove,
+                        contentDescription = stringResource(R.string.review_decrease_limit),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Text(
+                    text = TextUtils.formatNumber(value, persianDigits),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(42.dp)
+                )
+                IconButton(
+                    onClick = { onChange((value + 1).coerceAtMost(maxValue)) },
+                    enabled = value < maxValue
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = stringResource(R.string.review_increase_limit),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,

@@ -23,12 +23,16 @@ class DictionaryTranslator(private val dictionary: DictionaryManager) {
             var translatedAny = false
             for (token in tokens) {
                 if (!token.isWord) {
-                    val last = out.trim().lastOrNull()
-                    when {
-                        out.isEmpty() -> Unit
-                        last == ' ' -> out.append(token.text.trim())
-                        else -> out.append(token.text)
-                    }
+                    out.append(token.text)
+                    continue
+                }
+                val languageMatchesTarget = if (targetIsPersian) {
+                    TextUtils.isEnglish(token.text)
+                } else {
+                    !TextUtils.isEnglish(token.text)
+                }
+                if (!languageMatchesTarget) {
+                    out.append(token.text)
                     continue
                 }
                 val gloss = dictionary.gloss(token.text)

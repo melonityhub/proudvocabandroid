@@ -9,10 +9,25 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalMotionDurationScale
 import com.proudvocab.android.core.settings.AppSettings
+import com.proudvocab.android.core.settings.StyleTarget
+import com.proudvocab.android.core.settings.TextAlignPref
+import com.proudvocab.android.core.settings.TextStylePref
 import com.proudvocab.android.core.settings.ThemeMode
 import com.proudvocab.android.core.util.ColorCodec
 
@@ -92,6 +107,7 @@ object CefrColors {
 @Composable
 fun ProudVocabTheme(
     settings: AppSettings,
+    fonts: FontRepository,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -122,11 +138,84 @@ fun ProudVocabTheme(
         } else base
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = AppTypography,
-        content = content
+    val appText = settings.styleFor(StyleTarget.APP)
+    val appWeight = appText.bold?.let { if (it) FontWeight.Bold else FontWeight.Normal }
+        ?: FontWeight.Normal
+    val appStyle = if (appText.italic) FontStyle.Italic else FontStyle.Normal
+    val appFamily = remember(appText.font, appWeight, appStyle, fonts) {
+        fonts.resolve(appText.font, appWeight, appStyle)
+    }
+    val appColor = appText.color?.let { ColorCodec.parseULong(it) }?.let { Color(it) }
+    val appBackground = appText.background?.let { ColorCodec.parseULong(it) }?.let { Color(it) }
+    val typography = remember(appText, appFamily, appColor, appBackground) {
+        AppTypography.withAppStyle(appText, appFamily, appColor, appBackground)
+    }
+
+    val motionDurationScale = remember(settings.animationsEnabled) {
+        object : MotionDurationScale {
+            override val scaleFactor = if (settings.animationsEnabled) 1f else 0f
+        }
+    }
+    CompositionLocalProvider(LocalMotionDurationScale provides motionDurationScale) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = typography,
+            content = content
+        )
+    }
+}
+
+private fun Typography.withAppStyle(
+    pref: TextStylePref,
+    family: FontFamily,
+    color: Color?,
+    background: Color?
+): Typography {
+    val scale = pref.scale.coerceIn(0.5f, 2.5f)
+    val lineHeightScale = (pref.lineHeight / 1.35f).coerceIn(0.6f, 2f)
+    val weight = pref.bold?.let { if (it) FontWeight.Bold else FontWeight.Normal }
+    val alignment = when (pref.align) {
+        TextAlignPref.START -> TextAlign.Start
+        TextAlignPref.CENTER -> TextAlign.Center
+        TextAlignPref.END -> TextAlign.End
+    }
+    val shadow = if (pref.shadowDp > 0f) {
+        Shadow(color = Color.Black.copy(alpha = 0.75f), blurRadius = pref.shadowDp)
+    } else null
+
+    fun TextStyle.styled(): TextStyle = copy(
+        fontFamily = family,
+        fontWeight = weight ?: fontWeight,
+        fontStyle = if (pref.italic) FontStyle.Italic else FontStyle.Normal,
+        fontSize = if (fontSize == TextUnit.Unspecified) fontSize else fontSize * scale,
+        lineHeight = if (lineHeight == TextUnit.Unspecified) lineHeight
+        else lineHeight * scale * lineHeightScale,
+        letterSpacing = if (letterSpacing == TextUnit.Unspecified) pref.letterSpacingSp.sp
+        else letterSpacing + pref.letterSpacingSp.sp,
+        color = color ?: this.color,
+        background = background ?: this.background,
+        textAlign = alignment,
+        textDecoration = if (pref.underline) TextDecoration.Underline else TextDecoration.None,
+        shadow = shadow
+    )
+
+    return Typography(
+        displayLarge = displayLarge.styled(),
+        displayMedium = displayMedium.styled(),
+        displaySmall = displaySmall.styled(),
+        headlineLarge = headlineLarge.styled(),
+        headlineMedium = headlineMedium.styled(),
+        headlineSmall = headlineSmall.styled(),
+        titleLarge = titleLarge.styled(),
+        titleMedium = titleMedium.styled(),
+        titleSmall = titleSmall.styled(),
+        bodyLarge = bodyLarge.styled(),
+        bodyMedium = bodyMedium.styled(),
+        bodySmall = bodySmall.styled(),
+        labelLarge = labelLarge.styled(),
+        labelMedium = labelMedium.styled(),
+        labelSmall = labelSmall.styled()
     )
 }
 
-val AppTypography = Typography()
+private val AppTypography = Typography()

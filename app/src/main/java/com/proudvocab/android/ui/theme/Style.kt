@@ -72,6 +72,7 @@ fun rememberTargetStyle(
                 letterSpacing = pref.letterSpacingSp.sp,
                 lineHeight = (target.baseSizeSp * pref.scale * pref.lineHeight).sp,
                 color = color,
+                background = background ?: Color.Unspecified,
                 textAlign = pref.align.toTextAlign(),
                 textDecoration = if (pref.underline) TextDecoration.Underline else TextDecoration.None,
                 shadow = shadow

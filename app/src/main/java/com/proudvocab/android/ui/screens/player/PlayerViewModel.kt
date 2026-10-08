@@ -3,6 +3,8 @@ package com.proudvocab.android.ui.screens.player
 import android.app.Application
 import android.content.Context
 import android.net.Uri
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -17,6 +19,7 @@ import com.proudvocab.android.core.settings.WordKind
 import com.proudvocab.android.core.subtitle.SubtitleCue
 import com.proudvocab.android.core.subtitle.SubtitleParser
 import com.proudvocab.android.core.util.TextUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +27,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private const val MAX_SUBTITLE_BYTES = 20L * 1024L * 1024L
+
+private class SubtitleTooLargeException : IOException()
 
 data class WordLookup(
     val word: String,
@@ -33,6 +41,7 @@ data class WordLookup(
     val cefr: String? = null,
     val kind: Int = WordKind.WORD.id,
     val saved: Boolean = false,
+    val tags: List<String> = emptyList(),
     val loading: Boolean = true,
     val offline: Boolean = false,
     val error: String? = null
@@ -53,7 +62,9 @@ data class PlayerUiState(
     val subtitleError: String? = null,
     val lookup: WordLookup? = null,
     val lineTranslations: Map<Int, String> = emptyMap(),
+    val failedLineTranslations: Set<Int> = emptySet(),
     val translatingLine: Boolean = false,
+    val translatingLineIndex: Int? = null,
     val sessionSavedWords: Int = 0,
     val message: String? = null
 ) {
@@ -77,16 +88,67 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private var exoPlayer: ExoPlayer? = null
     private var positionJob: Job? = null
+    private var subtitleLoadJob: Job? = null
+    private var subtitleLoadRequestId = 0L
     private var translationJob: Job? = null
-    private val translationCache = LinkedHashMap<String, String>(256, 0.75f, true)
+    private var translationRequestId = 0L
+    private var lookupJob: Job? = null
+    private val translationCache = object : LinkedHashMap<String, String>(256, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>): Boolean =
+            size > 256
+    }
+
+    private val playbackListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            _uiState.update { it.copy(isPlaying = isPlaying) }
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            val current = exoPlayer ?: return
+            _uiState.update {
+                it.copy(
+                    durationMs = current.duration.coerceAtLeast(0L),
+                    isPlaying = current.isPlaying
+                )
+            }
+        }
+    }
 
     val player: ExoPlayer
-        get() = exoPlayer ?: ExoPlayer.Builder(getApplication()).build().also { exoPlayer = it }
+        get() = exoPlayer ?: ExoPlayer.Builder(getApplication()).build().also {
+            it.addListener(playbackListener)
+            exoPlayer = it
+        }
+
+    private fun cancelLineTranslation() {
+        translationRequestId += 1L
+        translationJob?.cancel()
+        translationJob = null
+    }
 
     init {
         viewModelScope.launch {
             settings.settings.collect { s ->
+                val previous = _settingsState.value
+                val translationSettingsChanged =
+                    previous.learningLanguage != s.learningLanguage ||
+                        previous.translationLanguage != s.translationLanguage ||
+                        previous.translationEngine != s.translationEngine ||
+                        previous.onlineFallback != s.onlineFallback
+                val delayChanged = _uiState.value.delayMs != s.subtitleDelayMs
                 _settingsState.value = s
+                if (translationSettingsChanged || delayChanged) cancelLineTranslation()
+                _uiState.update { state ->
+                    if (delayChanged || translationSettingsChanged) {
+                        state.copy(
+                            delayMs = s.subtitleDelayMs,
+                            lineTranslations = emptyMap(),
+                            failedLineTranslations = emptySet(),
+                            translatingLine = false,
+                            translatingLineIndex = null
+                        )
+                    } else state
+                }
             }
         }
         startPositionPolling()
@@ -103,6 +165,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     val pos = p.currentPosition
                     val state = _uiState.value
                     val index = SubtitleParser.cueIndexAt(state.shiftedCues, pos)
+                    val previousCue = state.shiftedCues.getOrNull(state.activeIndex)
+                    if (_settingsState.value.subtitleShadowing && previousCue != null &&
+                        pos >= previousCue.endMs && p.isPlaying
+                    ) {
+                        p.pause()
+                    }
                     if (pos != state.positionMs || index != state.activeIndex) {
                         _uiState.update {
                             it.copy(
@@ -112,8 +180,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                                 activeIndex = index
                             )
                         }
-                        if (index >= 0 && state.lineTranslations[index] == null &&
+                        if (!state.loadingSubtitle && index >= 0 &&
+                            state.lineTranslations[index] == null &&
+                            state.translatingLineIndex != index &&
                             _settingsState.value.subtitleDual &&
+                            !_settingsState.value.subtitleShadowing &&
                             _settingsState.value.subtitleTranslateWholeLine
                         ) {
                             translateLine(index)
@@ -130,19 +201,22 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun openVideo(context: Context, uri: Uri, title: String? = null) {
+        cancelLineTranslation()
         val p = player
         p.setMediaItem(MediaItem.fromUri(uri))
         p.prepare()
         p.playWhenReady = true
-        p.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                _uiState.update { it.copy(isPlaying = p.isPlaying) }
-            }
-        })
         _uiState.update {
             it.copy(
                 videoUri = uri,
                 videoTitle = title ?: lastSegment(uri),
+                activeIndex = -1,
+                positionMs = 0L,
+                durationMs = 0L,
+                lineTranslations = emptyMap(),
+                failedLineTranslations = emptySet(),
+                translatingLine = false,
+                translatingLineIndex = null,
                 message = null
             )
         }
@@ -150,34 +224,70 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun loadSubtitle(context: Context, uri: Uri) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(loadingSubtitle = true, subtitleError = null) }
-            val result = runCatching {
-                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    ?: error("cannot read file")
-                SubtitleParser.parse(bytes)
+        cancelLineTranslation()
+        subtitleLoadJob?.cancel()
+        val requestId = ++subtitleLoadRequestId
+        subtitleLoadJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    loadingSubtitle = true,
+                    subtitleError = null,
+                    translatingLine = false,
+                    translatingLineIndex = null
+                )
             }
-            result.onSuccess { cues ->
-                _uiState.update {
-                    it.copy(
-                        cues = cues,
-                        loadingSubtitle = false,
-                        subtitleError = if (cues.isEmpty()) "empty" else null,
-                        subtitleName = lastSegment(uri),
-                        lineTranslations = emptyMap()
-                    )
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching { SubtitleParser.parse(readSubtitleBytes(context, uri)) }
                 }
-                settings.update { s -> s.copy(lastSubtitleUri = uri.toString()) }
-            }.onFailure {
-                _uiState.update {
-                    it.copy(loadingSubtitle = false, subtitleError = it.subtitleError ?: "error")
+                if (requestId != subtitleLoadRequestId) return@launch
+                result.onSuccess { cues ->
+                    _uiState.update {
+                        it.copy(
+                            cues = cues,
+                            activeIndex = -1,
+                            loadingSubtitle = false,
+                            subtitleError = if (cues.isEmpty()) "empty" else null,
+                            subtitleName = lastSegment(uri),
+                            lineTranslations = emptyMap(),
+                            failedLineTranslations = emptySet(),
+                            translatingLine = false,
+                            translatingLineIndex = null
+                        )
+                    }
+                    settings.update { s -> s.copy(lastSubtitleUri = uri.toString()) }
+                }.onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            loadingSubtitle = false,
+                            subtitleError = if (error is SubtitleTooLargeException) "too_large" else "error"
+                        )
+                    }
                 }
+            } finally {
+                if (requestId == subtitleLoadRequestId) subtitleLoadJob = null
             }
         }
     }
 
     fun clearSubtitle() {
-        _uiState.update { it.copy(cues = emptyList(), subtitleName = "", lineTranslations = emptyMap()) }
+        subtitleLoadRequestId += 1L
+        subtitleLoadJob?.cancel()
+        subtitleLoadJob = null
+        cancelLineTranslation()
+        _uiState.update {
+            it.copy(
+                cues = emptyList(),
+                activeIndex = -1,
+                subtitleName = "",
+                loadingSubtitle = false,
+                subtitleError = null,
+                lineTranslations = emptyMap(),
+                failedLineTranslations = emptySet(),
+                translatingLine = false,
+                translatingLineIndex = null
+            )
+        }
     }
 
     fun togglePlay() {
@@ -188,7 +298,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun seekBy(deltaMs: Long) {
         val p = player
-        p.seekTo((p.currentPosition + deltaMs).coerceAtLeast(0L))
+        val target = (p.currentPosition + deltaMs).coerceAtLeast(0L)
+        p.seekTo(if (p.duration > 0L) target.coerceAtMost(p.duration) else target)
+    }
+
+    fun seekTo(positionMs: Long) {
+        val p = player
+        val position = positionMs.coerceAtLeast(0L)
+        p.seekTo(if (p.duration > 0L) position.coerceAtMost(p.duration) else position)
     }
 
     fun seekToCue(index: Int) {
@@ -211,49 +328,114 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setSpeed(value: Float) {
-        player.setPlaybackSpeed(value.coerceIn(0.25f, 3f))
-        _uiState.update { it.copy(speed = value) }
+        val bounded = value.coerceIn(0.25f, 3f)
+        player.setPlaybackSpeed(bounded)
+        _uiState.update { it.copy(speed = bounded) }
     }
 
-    fun setDelay(deltaMs: Long) {
+    fun setDelay(deltaMs: Long) = setSubtitleDelay(_uiState.value.delayMs + deltaMs)
+
+    fun setSubtitleDelay(valueMs: Long) {
+        val bounded = valueMs.coerceIn(-5_000L, 5_000L)
+        cancelLineTranslation()
         _uiState.update {
-            it.copy(delayMs = it.delayMs + deltaMs, lineTranslations = emptyMap())
+            it.copy(
+                delayMs = bounded,
+                lineTranslations = emptyMap(),
+                failedLineTranslations = emptySet(),
+                translatingLine = false,
+                translatingLineIndex = null
+            )
         }
+        viewModelScope.launch { settings.update { it.copy(subtitleDelayMs = bounded) } }
     }
 
-    fun resetDelay() {
-        _uiState.update { it.copy(delayMs = 0L, lineTranslations = emptyMap()) }
-    }
+    fun resetDelay() = setSubtitleDelay(0L)
 
     // ------------------------------------------------------------ translate
 
     fun translateLine(index: Int) {
         val state = _uiState.value
         val cue = state.shiftedCues.getOrNull(index) ?: return
+        if (state.lineTranslations[index] != null || state.translatingLineIndex == index) return
+
+        cancelLineTranslation()
+        val requestId = translationRequestId
         val s = _settingsState.value
-        val key = "${s.translationLanguage}|${cue.text}"
-        translationCache[key]?.let {
-            _uiState.update { st -> st.copy(lineTranslations = st.lineTranslations + (index to it)) }
+        val key = "${s.learningLanguage}|${s.translationLanguage}|${s.translationEngine}|${s.onlineFallback}|${cue.text}"
+        translationCache[key]?.let { cached ->
+            _uiState.update { current ->
+                current.copy(
+                    lineTranslations = current.lineTranslations + (index to cached),
+                    failedLineTranslations = current.failedLineTranslations - index,
+                    translatingLine = false,
+                    translatingLineIndex = null
+                )
+            }
             return
         }
-        translationJob?.cancel()
+
+        _uiState.update {
+            it.copy(
+                failedLineTranslations = it.failedLineTranslations - index,
+                translatingLine = true,
+                translatingLineIndex = index
+            )
+        }
         translationJob = viewModelScope.launch {
-            _uiState.update { it.copy(translatingLine = true) }
-            translation.translate(
-                text = cue.text,
-                source = s.learningLanguage,
-                target = s.translationLanguage
-            ).onSuccess { result ->
-                translationCache[key] = result.text
-                _uiState.update {
-                    it.copy(
-                        lineTranslations = it.lineTranslations + (index to result.text),
-                        translatingLine = false
-                    )
-                }
-            }.onFailure {
-                _uiState.update { it.copy(translatingLine = false) }
+            val result = try {
+                translation.translate(
+                    text = cue.text,
+                    source = s.learningLanguage,
+                    target = s.translationLanguage
+                )
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                Result.failure(error)
             }
+            val latestSettings = _settingsState.value
+            if (requestId != translationRequestId ||
+                latestSettings.learningLanguage != s.learningLanguage ||
+                latestSettings.translationLanguage != s.translationLanguage ||
+                latestSettings.translationEngine != s.translationEngine ||
+                latestSettings.onlineFallback != s.onlineFallback ||
+                _uiState.value.shiftedCues.getOrNull(index)?.text != cue.text
+            ) return@launch
+
+            result.fold(
+                onSuccess = { translated ->
+                    if (translated.text.isBlank()) {
+                        _uiState.update {
+                            it.copy(
+                                failedLineTranslations = it.failedLineTranslations + index,
+                                translatingLine = false,
+                                translatingLineIndex = null
+                            )
+                        }
+                    } else {
+                        translationCache[key] = translated.text
+                        _uiState.update {
+                            it.copy(
+                                lineTranslations = it.lineTranslations + (index to translated.text),
+                                failedLineTranslations = it.failedLineTranslations - index,
+                                translatingLine = false,
+                                translatingLineIndex = null
+                            )
+                        }
+                    }
+                },
+                onFailure = {
+                    _uiState.update {
+                        it.copy(
+                            failedLineTranslations = it.failedLineTranslations + index,
+                            translatingLine = false,
+                            translatingLineIndex = null
+                        )
+                    }
+                }
+            )
+            translationJob = null
         }
     }
 
@@ -262,9 +444,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // ------------------------------------------------------------- look up
 
     fun lookUp(word: String, contextSentence: String) {
-        viewModelScope.launch {
+        lookupJob?.cancel()
+        lookupJob = viewModelScope.launch {
             val s = _settingsState.value
             val clean = word.trim()
+            if (clean.isBlank()) return@launch
+
             val cefr = dictionary.cefr(clean)
             val isIdiom = dictionary.isIdiom(clean, s.translationLanguage)
             val isPhrasal = dictionary.isPhrasal(clean, s.translationLanguage)
@@ -273,7 +458,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 isPhrasal -> WordKind.PHRASAL.id
                 else -> WordKind.WORD.id
             }
-
+            val savedWord = vocab.find(clean, s.learningLanguage)
             _uiState.update {
                 it.copy(
                     lookup = WordLookup(
@@ -282,57 +467,66 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         cefr = cefr,
                         kind = kind,
                         loading = true,
-                        saved = vocab.find(clean, s.learningLanguage) != null
+                        saved = savedWord != null,
+                        tags = savedWord?.tagsList.orEmpty()
                     )
                 )
             }
             if (s.autoPauseOnLookup) player.pause()
 
-            // 1 — the offline dictionary first: it is instant and always there
+            // Fetch rich dictionary data independently, but always ask the
+            // selected translation engine for the translation itself.
             val entry = dictionary.entry(clean)
-            val offlineGloss = entry?.shortGloss?.takeIf { it.isNotBlank() }
-                ?: dictionary.gloss(clean).takeIf { it.isNotBlank() }
+            val glossMatchesDirection = when {
+                s.learningLanguage == "en" && s.translationLanguage == "fa" -> entry?.isPersian == false
+                s.learningLanguage == "fa" && s.translationLanguage == "en" -> entry?.isPersian == true
+                s.learningLanguage == "auto" && s.translationLanguage == "fa" -> entry?.isPersian == false
+                s.learningLanguage == "auto" && s.translationLanguage == "en" -> entry?.isPersian == true
+                else -> false
+            }
+            val offlineGloss = if (glossMatchesDirection) {
+                entry?.shortGloss?.takeIf { it.isNotBlank() }
+                    ?: dictionary.gloss(clean).takeIf { it.isNotBlank() }
+            } else null
 
-            if (!offlineGloss.isNullOrBlank() && s.translationLanguage == "fa") {
+            val result = translation.translate(
+                text = clean,
+                source = s.learningLanguage,
+                target = s.translationLanguage
+            )
+            val latestSettings = _settingsState.value
+            val latestLookup = _uiState.value.lookup
+            if (latestLookup == null || latestLookup.word != clean ||
+                latestLookup.contextSentence != contextSentence ||
+                latestSettings.learningLanguage != s.learningLanguage ||
+                latestSettings.translationLanguage != s.translationLanguage ||
+                latestSettings.translationEngine != s.translationEngine ||
+                latestSettings.onlineFallback != s.onlineFallback
+            ) return@launch
+
+            result.onSuccess { translated ->
+                _uiState.update {
+                    it.copy(
+                        lookup = it.lookup?.copy(
+                            translation = translated.text,
+                            entry = entry,
+                            loading = false,
+                            offline = translated.offline,
+                            error = null
+                        )
+                    )
+                }
+            }.onFailure { error ->
                 _uiState.update {
                     it.copy(
                         lookup = it.lookup?.copy(
                             translation = offlineGloss,
                             entry = entry,
                             loading = false,
-                            offline = true
+                            offline = !offlineGloss.isNullOrBlank(),
+                            error = error.message ?: "Translation failed"
                         )
                     )
-                }
-            } else {
-                val result = translation.translate(
-                    text = clean,
-                    source = s.learningLanguage,
-                    target = s.translationLanguage
-                )
-                result.onSuccess { translated ->
-                    _uiState.update {
-                        it.copy(
-                            lookup = it.lookup?.copy(
-                                translation = translated.text,
-                                entry = entry,
-                                loading = false,
-                                offline = translated.offline
-                            )
-                        )
-                    }
-                }.onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            lookup = it.lookup?.copy(
-                                translation = offlineGloss,
-                                entry = entry,
-                                loading = false,
-                                offline = true,
-                                error = error.message
-                            )
-                        )
-                    }
                 }
             }
             vocab.addHistory(clean, s.learningLanguage)
@@ -340,6 +534,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun dismissLookup() {
+        lookupJob?.cancel()
+        lookupJob = null
         _uiState.update { it.copy(lookup = null) }
         if (_settingsState.value.autoRewind) {
             seekBy(-_settingsState.value.rewindSeconds * 1000L)
@@ -351,11 +547,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val s = _settingsState.value
             val existing = vocab.find(lookup.word, s.learningLanguage)
+            if (_uiState.value.lookup?.word != lookup.word) return@launch
             if (existing != null) {
                 vocab.delete(existing)
-                _uiState.update { it.copy(lookup = it.lookup?.copy(saved = false)) }
+                _uiState.update {
+                    it.copy(lookup = it.lookup?.copy(saved = false, tags = emptyList()))
+                }
             } else {
-                vocab.save(
+                val savedWord = vocab.save(
                     word = lookup.word,
                     language = s.learningLanguage,
                     translation = lookup.translation.orEmpty(),
@@ -368,7 +567,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 )
                 _uiState.update {
                     it.copy(
-                        lookup = it.lookup?.copy(saved = true),
+                        lookup = it.lookup?.copy(saved = true, tags = savedWord.tagsList),
                         sessionSavedWords = it.sessionSavedWords + 1
                     )
                 }
@@ -378,12 +577,39 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
 
+    private fun readSubtitleBytes(context: Context, uri: Uri): ByteArray {
+        val input = context.contentResolver.openInputStream(uri) ?: error("cannot read file")
+        return input.use { source ->
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(16 * 1024)
+            var total = 0L
+            while (true) {
+                val count = source.read(buffer)
+                if (count < 0) break
+                if (count == 0) {
+                    val single = source.read()
+                    if (single < 0) break
+                    total += 1
+                    if (total > MAX_SUBTITLE_BYTES) throw SubtitleTooLargeException()
+                    output.write(single)
+                    continue
+                }
+                total += count
+                if (total > MAX_SUBTITLE_BYTES) throw SubtitleTooLargeException()
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
+    }
+
     private fun lastSegment(uri: Uri): String =
         uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast(':') ?: "media"
 
     override fun onCleared() {
         positionJob?.cancel()
+        subtitleLoadJob?.cancel()
         translationJob?.cancel()
+        lookupJob?.cancel()
         runCatching { exoPlayer?.release() }
         exoPlayer = null
         super.onCleared()

@@ -29,7 +29,11 @@ class LocaleStore(context: Context) {
 object LocaleHelper {
 
     fun apply(context: Context, language: String): Context {
-        if (language.isBlank()) return context
+        if (language.isBlank()) {
+            val systemLocale = context.resources.configuration.locales[0] ?: Locale.getDefault()
+            Locale.setDefault(systemLocale)
+            return context
+        }
         val locale = Locale.forLanguageTag(language)
         Locale.setDefault(locale)
         val configuration = android.content.res.Configuration(context.resources.configuration)

@@ -13,6 +13,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,7 +24,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
@@ -66,6 +70,7 @@ import com.proudvocab.android.ui.theme.rememberTargetStyle
  * The sheet that opens when a word is tapped anywhere in the app
  * (subtitle chips, dictionary results, archive rows).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
 fun WordLookupSheet(
@@ -83,6 +88,7 @@ fun WordLookupSheet(
     val headwordStyle = rememberTargetStyle(StyleTarget.WORD_CARD, settings, deps.fonts)
     val translationStyle = rememberTargetStyle(StyleTarget.WORD_TRANSLATION, settings, deps.fonts)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val scrollState = rememberScrollState()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -92,6 +98,7 @@ fun WordLookupSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
+                .verticalScroll(scrollState)
                 .padding(horizontal = 22.dp)
                 .padding(bottom = 26.dp)
                 .animateContentSize(spring(Spring.DampingRatioNoBouncy))
@@ -118,6 +125,19 @@ fun WordLookupSheet(
                     ),
                     color = MaterialTheme.colorScheme.tertiary
                 )
+            }
+
+            if (settings.showWordTags && lookup.saved && lookup.tags.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = stringResource(R.string.popup_tags),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(5.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    lookup.tags.forEach { tag -> Pill(text = tag) }
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -153,6 +173,12 @@ fun WordLookupSheet(
                                     modifier = Modifier.weight(1f)
                                 )
                             }
+                        } else if (!lookup.error.isNullOrBlank()) {
+                            Text(
+                                text = stringResource(R.string.popup_translation_failed),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
                         val phonetic = lookup.entry?.phoneticUs ?: lookup.entry?.phoneticUk
                         if (!phonetic.isNullOrBlank()) {
@@ -186,7 +212,7 @@ fun WordLookupSheet(
                         }
 
                         val meanings = lookup.entry?.meanings.orEmpty()
-                        if (meanings.size > 1) {
+                        if (settings.showWordDetails && meanings.size > 1) {
                             Spacer(Modifier.height(10.dp))
                             meanings.take(6).forEach { meaning ->
                                 Row(
@@ -214,6 +240,63 @@ fun WordLookupSheet(
                             }
                         }
 
+                        if (settings.showWordDetails) {
+                            val entry = lookup.entry
+                            val examples = entry?.sentences.orEmpty().take(4)
+                            if (examples.isNotEmpty()) {
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text = stringResource(R.string.dict_examples),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                examples.forEach { example ->
+                                    Spacer(Modifier.height(5.dp))
+                                    Text(
+                                        text = example.source,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (example.target.isNotBlank()) {
+                                        Text(
+                                            text = example.target,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            val synonyms = entry?.synonyms.orEmpty()
+                                .flatMap { it.synonyms }
+                                .distinct()
+                                .take(10)
+                            if (synonyms.isNotEmpty()) {
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text = stringResource(R.string.dict_synonyms),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.height(5.dp))
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    synonyms.forEach { synonym -> Pill(text = synonym) }
+                                }
+                            }
+
+                            val forms = entry?.forms?.asPairs().orEmpty()
+                            if (forms.isNotEmpty()) {
+                                Spacer(Modifier.height(12.dp))
+                                forms.forEach { (label, form) ->
+                                    Text(
+                                        text = "$label: $form",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
                         if (settings.showWordFamily) {
                             val family = lookup.entry?.family?.takeIf { it.isNotEmpty() }
                                 ?: deps.dictionary.generateFamily(lookup.word)
@@ -225,10 +308,8 @@ fun WordLookupSheet(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(Modifier.height(6.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    family.take(6).forEach { word ->
-                                        Pill(text = word)
-                                    }
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    family.take(6).forEach { word -> Pill(text = word) }
                                 }
                             }
                         }

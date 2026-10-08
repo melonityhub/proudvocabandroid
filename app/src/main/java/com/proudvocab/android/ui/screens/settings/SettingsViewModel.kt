@@ -52,11 +52,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch {
+            var checkedPair: Pair<String, String>? = null
             settings.settings.collect { s ->
                 _settings.value = s
-                if (s.engine() == TranslationEngine.OFFLINE ||
-                    s.engine() == TranslationEngine.AUTO
-                ) {
+                val pair = s.learningLanguage to s.translationLanguage
+                if (pair != checkedPair) {
+                    checkedPair = pair
                     checkModel(s)
                 }
             }
@@ -75,13 +76,25 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // ---------------------------------------------------------- appearance
 
     fun setTheme(mode: ThemeMode) = launch { settings.setTheme(mode) }
-    fun setDynamicColor(enabled: Boolean) = launch { settings.setDynamicColor(enabled) }
-    fun setAccent(hex: String?) = launch { settings.setAccent(hex) }
+    fun setDynamicColor(enabled: Boolean) = launch {
+        settings.update { current ->
+            current.copy(
+                dynamicColor = enabled,
+                accentHex = if (enabled) null else current.accentHex
+            )
+        }
+    }
+    fun setAccent(hex: String?) = launch {
+        settings.update { current ->
+            current.copy(accentHex = hex, dynamicColor = hex == null)
+        }
+    }
     fun setAnimations(enabled: Boolean) = launch { settings.setAnimations(enabled) }
     fun setPersianDigits(enabled: Boolean) = launch { settings.update { it.copy(usePersianDigits = enabled) } }
 
-    fun setAppLanguage(code: String) = launch {
+    suspend fun setAppLanguage(code: String) {
         settings.setAppLanguage(code)
+        // attachBaseContext reads this synchronous mirror before Activity startup.
         localeStore.language = code
     }
 
@@ -135,6 +148,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setSubtitlePosition(value: Float) =
         launch { settings.update { it.copy(subtitlePositionBottom = value) } }
+    fun setSubtitleDelay(valueMs: Long) =
+        launch { settings.update { it.copy(subtitleDelayMs = valueMs.coerceIn(-5_000L, 5_000L)) } }
     fun setSubtitleOpacity(value: Float) =
         launch { settings.update { it.copy(subtitleBackgroundOpacity = value) } }
     fun setSubtitleBackground(hex: String) =
@@ -159,9 +174,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setEngine(engine: TranslationEngine) = launch { settings.setEngine(engine) }
     fun setOnlineFallback(enabled: Boolean) =
         launch { settings.update { it.copy(onlineFallback = enabled) } }
-    fun setAutoTranslateLines(enabled: Boolean) =
-        launch { settings.update { it.copy(autoTranslateLines = enabled) } }
-
     fun checkModel(s: AppSettings = _settings.value) {
         viewModelScope.launch {
             _uiState.update { it.copy(modelState = ModelState.Checking) }
@@ -175,7 +187,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun downloadModel() {
         viewModelScope.launch {
             val s = _settings.value
-            _uiState.update { it.copy(modelState = ModelState.Downloading(0)) }
+            _uiState.update { it.copy(modelState = ModelState.Downloading) }
             translation.offline.download(s.learningLanguage, s.translationLanguage)
                 .onSuccess {
                     _uiState.update { it.copy(modelState = ModelState.Ready) }
@@ -218,7 +230,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun removeDictionary() {
         viewModelScope.launch {
-            dictionary.removeImported()
+            if (!dictionary.removeImported()) {
+                _uiState.update { it.copy(message = "dictionary_fail") }
+                return@launch
+            }
             settings.update {
                 it.copy(dictionaryImported = false, dictionaryWordCount = 0L, dictionaryName = "")
             }

@@ -43,7 +43,6 @@ data class AppSettings(
     // -------------------------------------------------------- translation
     val translationEngine: String = TranslationEngine.AUTO.key,
     val onlineFallback: Boolean = true,
-    val autoTranslateLines: Boolean = true,
 
     // ------------------------------------------------------------ offline
     val dictionaryImported: Boolean = false,

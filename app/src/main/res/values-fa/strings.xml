@@ -57,12 +57,24 @@
     <string name="player_prev_line">خط قبلی</string>
     <string name="player_next_line">خط بعدی</string>
     <string name="player_fullscreen">تمام‌صفحه</string>
+    <string name="player_exit_fullscreen">خروج از تمام‌صفحه</string>
+    <string name="player_play">پخش</string>
+    <string name="player_pause">مکث</string>
+    <string name="player_speed">سرعت پخش %1$s×؛ برای تغییر لمس کن.</string>
+    <string name="player_seek">جابه‌جایی در ویدیو</string>
+    <string name="player_seek_back">پنج ثانیه عقب</string>
+    <string name="player_seek_forward">پنج ثانیه جلو</string>
     <string name="player_transcript">متن گفتار</string>
     <string name="player_dual_subtitles">زیرنویس دولایه</string>
     <string name="player_subtitles_off">زیرنویس خاموش</string>
     <string name="player_word_saved">لغت ذخیره شد</string>
     <string name="player_session_words">%1$d لغت در این نشست</string>
     <string name="player_translate_line">ترجمهٔ این خط</string>
+    <string name="player_translation_unavailable">ترجمهٔ این خط ممکن نشد؛ موتور ترجمه یا اتصال را بررسی کن.</string>
+    <string name="player_subtitle_loading">در حال بارگیری زیرنویس…</string>
+    <string name="player_subtitle_empty">هیچ خط زیرنویسی در این فایل پیدا نشد.</string>
+    <string name="player_subtitle_error">خواندن فایل زیرنویس ممکن نشد.</string>
+    <string name="player_subtitle_too_large">حجم فایل زیرنویس از حد ایمنی ۲۰ مگابایت بیشتر است.</string>
     <string name="player_need_storage_permission">برای دیدن ویدیوهای دستگاه، دسترسی به رسانه را بده.</string>
     <string name="player_grant">دادن دسترسی</string>
     <string name="player_loading_subtitle">در حال خواندن زیرنویس…</string>
@@ -108,6 +120,7 @@
     <string name="popup_tags">برچسب‌ها</string>
     <string name="popup_context">بافت جمله</string>
     <string name="popup_translating">در حال ترجمه…</string>
+    <string name="popup_translation_failed">ترجمهٔ این واژه ممکن نشد؛ موتور ترجمه یا اتصال را بررسی کن.</string>
 
     <!-- ============================ مرور ============================ -->
     <string name="review_title">مرور</string>
@@ -124,6 +137,8 @@
     <string name="review_total">شمار لغت‌ها</string>
     <string name="review_new_limit">لغت جدید در روز</string>
     <string name="review_session_limit">کارت در هر نشست</string>
+    <string name="review_decrease_limit">کاهش تعداد</string>
+    <string name="review_increase_limit">افزایش تعداد</string>
     <string name="review_heatmap">سال شما در لغت‌ها</string>
     <string name="review_next_in">مرور بعدی %1$s دیگر</string>
     <string name="review_empty_title">چیزی برای مرور نیست</string>
@@ -216,6 +231,8 @@
     <string name="settings_animations">انیمیشن‌ها</string>
     <string name="settings_animations_desc">برای صرفه‌جویی در باتری کمتر شود</string>
     <string name="settings_app_language">زبان برنامه</string>
+    <string name="language_system_default">زبان دستگاه</string>
+    <string name="language_system_desc">استفاده از زبان دستگاه</string>
 
     <string name="typography_intro">هر بخش از برنامه قلم، اندازه و رنگِ خودش را دارد. این تنظیمات با هم قاطی نمی‌شوند؛ پس زیرنویس، ترجمه و منوها هیچ‌وقت به هم ربط پیدا نمی‌کنند.</string>
     <string name="typography_target">بخش متن</string>
@@ -266,7 +283,9 @@
     <string name="settings_sub_dual_desc">نمایش خط ترجمه زیر خط اصلی</string>
     <string name="settings_sub_max_lines">بیشینهٔ خط‌ها</string>
     <string name="settings_sub_shadowing">حالت سایه‌روی</string>
-    <string name="settings_sub_shadowing_desc">تکرار هر خط و مکث پس از آن</string>
+    <string name="settings_sub_auto_translate_lines">ترجمهٔ خودکار خط زیرنویس</string>
+    <string name="settings_sub_auto_translate_lines_desc">ترجمهٔ خط را خودکار نشان بده؛ برای درخواست دستی خاموشش کن.</string>
+    <string name="settings_sub_shadowing_desc">ترجمه را پنهان کن و در مرز هر زیرنویس مکث کن تا خط را با صدای بلند تکرار کنی.</string>
     <string name="settings_sub_word_chips">لغت‌های قابل لمس</string>
     <string name="settings_sub_highlight_cefr">رنگی‌کردن لغت‌ها بر پایهٔ CEFR</string>
     <string name="settings_sub_highlight_idioms">برجسته‌کردن اصطلاح‌ها و افعال عبارتی</string>
@@ -287,7 +306,7 @@
     <string name="offline_model_ready">آماده · %1$s</string>
     <string name="offline_model_missing">دریافت نشده</string>
     <string name="offline_model_download">دریافت (%1$s)</string>
-    <string name="offline_model_downloading">در حال دریافت… %1$d٪</string>
+    <string name="offline_model_downloading">در حال بارگیری مدل آفلاین…</string>
     <string name="offline_model_delete">حذف مدل</string>
     <string name="offline_model_need_wifi">دریافت از دادهٔ تلفن همراه انجام شود؟</string>
     <string name="dict_db_title">پایگاه دیکشنری آفلاین</string>
@@ -318,15 +337,17 @@
     <string name="settings_import_done">پشتیبان بازیابی شد</string>
     <string name="settings_import_failed">این پشتیبان خوانده نشد</string>
 
-    <string name="perm_storage_title">دسترسی به رسانه</string>
-    <string name="perm_storage_desc">گشتن در ویدیوهای ذخیره‌شده روی دستگاه</string>
+    <string name="perm_storage_title">فایل‌های انتخاب‌شده</string>
+    <string name="perm_storage_desc">با انتخاب‌گر فایل اندروید ویدیو یا زیرنویس را انتخاب کن. ProudVocab فقط به همان فایل‌های انتخاب‌شده دسترسی دارد و به مجوز گستردهٔ حافظه نیازی نیست.</string>
+    <string name="perm_network_title">دسترسی به اینترنت</string>
+    <string name="perm_network_desc">اینترنت برای ترجمهٔ آنلاین و فقط هنگام درخواست بارگیری یک مدل روی دستگاه استفاده می‌شود. دیکشنری آفلاین و مدل‌های دریافت‌شده روی همین دستگاه می‌مانند.</string>
     <string name="perm_notifications_title">اعلان‌ها</string>
     <string name="perm_notifications_desc">آگاه‌کردن شما پس از پایان دریافت مدل آفلاین</string>
     <string name="perm_status_granted">داده شده</string>
     <string name="perm_status_denied">داده نشده</string>
     <string name="perm_grant">دادن دسترسی</string>
     <string name="perm_open_settings">باز کردن تنظیمات سیستم</string>
-    <string name="perm_intro">ProudVocab فقط همان دسترسی‌ای را می‌خواهد که یک قابلیت لازم دارد، و فقط هنگامی که از آن قابلیت استفاده می‌کنی.</string>
+    <string name="perm_intro">ProudVocab برای حافظه یا اعلان‌ها دسترسی گسترده نمی‌خواهد. اندروید فقط پس از انتخاب ویدیو یا زیرنویس، دسترسی همان فایل را می‌دهد.</string>
 
     <string name="about_version">نسخهٔ %1$s (%2$d)</string>
     <string name="about_body">یک پورتِ اندرویدیِ متن‌باز از افزونهٔ ProudVocab: زیرنویس دولایه، لغت‌های قابل لمس، تمرین‌کنندهٔ لغتِ آگاه به سطح CEFR و یک دیکشنری کاملاً آفلاین — با همهٔ گزینه‌ها باز.</string>
@@ -366,7 +387,8 @@
 
 
     <!-- Settings: misc -->
-    <string name="settings_online_fallback">تلاش آنلاین در صورت نیاز</string>
+    <string name="settings_online_fallback">در صورت شکست ترجمهٔ آفلاین، آنلاین امتحان شود</string>
+    <string name="settings_online_fallback_desc">فقط روی موتور آفلاین اثر دارد؛ دیکشنری همچنان آخرین راهکار آفلاین است.</string>
     <string name="settings_persian_digits">ارقام فارسی</string>
     <string name="settings_persian_digits_desc">نمایش اعداد به صورت ۰۱۲۳ به‌جای 0123</string>
 

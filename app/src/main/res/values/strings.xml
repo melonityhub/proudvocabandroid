@@ -57,12 +57,24 @@
     <string name="player_prev_line">Previous line</string>
     <string name="player_next_line">Next line</string>
     <string name="player_fullscreen">Fullscreen</string>
+    <string name="player_exit_fullscreen">Exit fullscreen</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_speed">Playback speed %1$s×. Tap to change.</string>
+    <string name="player_seek">Seek video position</string>
+    <string name="player_seek_back">Seek back five seconds</string>
+    <string name="player_seek_forward">Seek forward five seconds</string>
     <string name="player_transcript">Transcript</string>
     <string name="player_dual_subtitles">Dual subtitles</string>
     <string name="player_subtitles_off">Subtitles off</string>
     <string name="player_word_saved">Word saved</string>
     <string name="player_session_words">%1$d words this session</string>
     <string name="player_translate_line">Translate this line</string>
+    <string name="player_translation_unavailable">Could not translate this line. Check your engine or connection.</string>
+    <string name="player_subtitle_loading">Loading subtitles…</string>
+    <string name="player_subtitle_empty">No subtitle cues were found in this file.</string>
+    <string name="player_subtitle_error">Could not read this subtitle file.</string>
+    <string name="player_subtitle_too_large">This subtitle file is over the 20 MB safety limit.</string>
     <string name="player_need_storage_permission">Allow media access to browse the videos on this device.</string>
     <string name="player_grant">Grant</string>
     <string name="player_loading_subtitle">Reading subtitle…</string>
@@ -108,6 +120,7 @@
     <string name="popup_tags">Tags</string>
     <string name="popup_context">Context</string>
     <string name="popup_translating">Translating…</string>
+    <string name="popup_translation_failed">Could not translate this word. Check your engine or connection.</string>
 
     <!-- ============================ Review ============================ -->
     <string name="review_title">Review</string>
@@ -124,6 +137,8 @@
     <string name="review_total">Total words</string>
     <string name="review_new_limit">New words / day</string>
     <string name="review_session_limit">Cards / session</string>
+    <string name="review_decrease_limit">Decrease limit</string>
+    <string name="review_increase_limit">Increase limit</string>
     <string name="review_heatmap">Your year in words</string>
     <string name="review_next_in">Next review in %1$s</string>
     <string name="review_empty_title">Nothing to review</string>
@@ -216,6 +231,8 @@
     <string name="settings_animations">Animations</string>
     <string name="settings_animations_desc">Reduce motion to save battery</string>
     <string name="settings_app_language">App language</string>
+    <string name="language_system_default">System default</string>
+    <string name="language_system_desc">Use the device language</string>
 
     <string name="typography_intro">Every area of the app has its own font, size and colour. Nothing is shared between them, so subtitles, translations and menus never mix up.</string>
     <string name="typography_target">Text area</string>
@@ -266,7 +283,9 @@
     <string name="settings_sub_dual_desc">Show the translated line under the original</string>
     <string name="settings_sub_max_lines">Max lines</string>
     <string name="settings_sub_shadowing">Shadowing mode</string>
-    <string name="settings_sub_shadowing_desc">Repeat each line and pause after it</string>
+    <string name="settings_sub_auto_translate_lines">Auto-translate subtitle lines</string>
+    <string name="settings_sub_auto_translate_lines_desc">Show the line translation automatically; turn off to request it on demand.</string>
+    <string name="settings_sub_shadowing_desc">Hide the translation and pause at each subtitle boundary so you can repeat the line aloud.</string>
     <string name="settings_sub_word_chips">Clickable words</string>
     <string name="settings_sub_highlight_cefr">Colour words by CEFR level</string>
     <string name="settings_sub_highlight_idioms">Highlight idioms &amp; phrasal verbs</string>
@@ -287,7 +306,7 @@
     <string name="offline_model_ready">Ready · %1$s</string>
     <string name="offline_model_missing">Not downloaded</string>
     <string name="offline_model_download">Download (%1$s)</string>
-    <string name="offline_model_downloading">Downloading… %1$d%%</string>
+    <string name="offline_model_downloading">Downloading offline model…</string>
     <string name="offline_model_delete">Delete model</string>
     <string name="offline_model_need_wifi">Downloads use your mobile data. Continue?</string>
     <string name="dict_db_title">Offline dictionary database</string>
@@ -318,15 +337,17 @@
     <string name="settings_import_done">Backup restored</string>
     <string name="settings_import_failed">Could not read that backup</string>
 
-    <string name="perm_storage_title">Media access</string>
-    <string name="perm_storage_desc">Browse the videos stored on this device</string>
+    <string name="perm_storage_title">Selected files</string>
+    <string name="perm_storage_desc">Use Android’s file picker to choose a video or subtitle. ProudVocab can read only the files you select; no broad storage permission is needed.</string>
+    <string name="perm_network_title">Network access</string>
+    <string name="perm_network_desc">Internet is used for online translation and only when you choose to download an on-device model. Your offline dictionary and downloaded models stay on this device.</string>
     <string name="perm_notifications_title">Notifications</string>
     <string name="perm_notifications_desc">Tell you when an offline model finished downloading</string>
     <string name="perm_status_granted">Granted</string>
     <string name="perm_status_denied">Not granted</string>
     <string name="perm_grant">Grant</string>
     <string name="perm_open_settings">Open system settings</string>
-    <string name="perm_intro">ProudVocab only asks for what a feature needs, and only at the moment you use that feature.</string>
+    <string name="perm_intro">ProudVocab does not request broad storage or notification access. Android grants access to a video or subtitle only after you choose that file.</string>
 
     <string name="about_version">Version %1$s (%2$d)</string>
     <string name="about_body">An open-source Android port of the ProudVocab extension: dual subtitles, clickable words, a CEFR-aware vocabulary trainer and a fully offline dictionary — with every option unlocked.</string>
@@ -366,7 +387,8 @@
 
 
     <!-- Settings: misc -->
-    <string name="settings_online_fallback">Fallback to online</string>
+    <string name="settings_online_fallback">Try online if offline translation fails</string>
+    <string name="settings_online_fallback_desc">Only affects the offline engine; dictionary lookup remains the final offline fallback.</string>
     <string name="settings_persian_digits">Persian digits</string>
     <string name="settings_persian_digits_desc">Show numbers as ۰۱۲۳ instead of 0123</string>
 

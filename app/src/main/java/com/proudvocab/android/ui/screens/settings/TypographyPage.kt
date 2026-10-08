@@ -159,7 +159,7 @@ fun TypographyPage(vm: SettingsViewModel, settings: AppSettings) {
         }
 
         item {
-            SectionHeader(text = stringResource(item.label()))
+            SectionHeader(text = stringResource(target.label()))
             SettingsCard {
                 PreferenceRow(
                     title = stringResource(R.string.font_family),

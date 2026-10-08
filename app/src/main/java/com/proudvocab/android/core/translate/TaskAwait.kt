@@ -2,7 +2,6 @@ package com.proudvocab.android.core.translate
 
 import com.google.android.gms.tasks.OnSuccessListener
 import com.google.android.gms.tasks.Task
-import kotlin.coroutines.resumeWith
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 

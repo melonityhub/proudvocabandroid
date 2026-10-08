@@ -201,11 +201,25 @@ jobs:
             fingerprint="$( "$apksigner" verify --print-certs "release-assets/proudvocab-${RELEASE_TAG}-arm64-v8a.apk" 2>/dev/null | grep -oE 'SHA-256 digest: [0-9a-fA-F:]+' | head -n1 | sed 's/^SHA-256 digest: //' || true )"
           fi
 
+          # "What changed" from the commits since the previous tag, so the
+          # release page says what it actually fixes.
+          previous_tag="$(git describe --tags --abbrev=0 --match 'v*' "${RELEASE_TAG}^" 2>/dev/null || true)"
+          changes=""
+          if [ -n "$previous_tag" ]; then
+            changes="$(git log --no-merges --pretty=format:'- %s' "${previous_tag}..HEAD" 2>/dev/null || true)"
+          fi
+
           {
             echo "## ProudVocab ${version}"
             echo ""
             echo "Release build of \`${short_sha}\` — one APK per CPU architecture plus a universal APK."
             echo ""
+            if [ -n "$changes" ]; then
+              echo "### What changed since ${previous_tag}"
+              echo ""
+              echo "$changes"
+              echo ""
+            fi
             echo "${table}"
             if [ -n "$fingerprint" ]; then
               echo ""

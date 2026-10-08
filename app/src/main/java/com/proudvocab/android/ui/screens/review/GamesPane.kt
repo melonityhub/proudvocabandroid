@@ -33,7 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.Article
+import androidx.compose.material.icons.automirrored.rounded.Article
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
@@ -137,7 +137,7 @@ private fun GamesHub(
         ),
         GameInfo(
             GameType.CONTEXT_CHOICE, R.string.games_context_title, R.string.games_context_desc,
-            Color(0xFF93C5FD), Icons.Rounded.Article
+            Color(0xFF93C5FD), Icons.AutoMirrored.Rounded.Article
         )
     )
 

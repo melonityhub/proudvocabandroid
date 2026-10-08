@@ -103,9 +103,12 @@ class TextUtilsTest {
 
     @Test
     fun `colour parsing accepts both rgb and argb`() {
-        assertEquals(0xFFFF0000u, ColorCodec.parseULong("#FF0000"))
-        assertEquals(0x80FF0000u, ColorCodec.parseULong("#80FF0000"))
-        assertEquals(0xFFFF0000u, ColorCodec.parseULong("FF0000"))
+        assertEquals("#FFFF0000", ColorCodec.normalize("#FF0000"))
+        assertEquals("#80FF0000", ColorCodec.normalize("#80FF0000"))
+        assertEquals("#FFFF0000", ColorCodec.normalize("FF0000"))
+        assertEquals(0xFFFF0000uL, ColorCodec.parseULong("#FF0000"))
+        assertEquals(0x80FF0000uL, ColorCodec.parseULong("#80FF0000"))
+        assertEquals(0xFFFF0000uL, ColorCodec.parseULong("FF0000"))
     }
 
     @Test
@@ -118,17 +121,18 @@ class TextUtilsTest {
 
     @Test
     fun `hex round trips`() {
-        val packed = ColorCodec.parseULong("#123456")!!
+        val packed: ULong = ColorCodec.parseULong("#123456")!!
         assertEquals("#FF123456", ColorCodec.toHex(packed))
         assertEquals("#123456", ColorCodec.toHexRgb(packed))
     }
 
     @Test
     fun `alpha and luminance helpers behave`() {
-        assertEquals(0f, ColorCodec.alphaOf(0x00FFFFFFu), 0.001f)
-        assertEquals(1f, ColorCodec.alphaOf(0xFFFFFFFFu), 0.001f)
-        assertTrue(ColorCodec.isDark(0xFF000000u))
-        assertFalse(ColorCodec.isDark(0xFFFFFFFFu))
-        assertEquals(0x80123456u, ColorCodec.withAlpha(0xFF123456u, 0.502f))
+        assertEquals(0.0, ColorCodec.alphaOf(0x00FFFFFFuL).toDouble(), 0.001)
+        assertEquals(1.0, ColorCodec.alphaOf(0xFFFFFFFFuL).toDouble(), 0.001)
+        assertTrue(ColorCodec.isDark(0xFF000000uL))
+        assertFalse(ColorCodec.isDark(0xFFFFFFFFuL))
+        assertEquals(0x80123456uL, ColorCodec.withAlpha(0xFF123456uL, 0.502f))
+        assertEquals(0x00123456uL, ColorCodec.withAlpha(0xFF123456uL, 0f))
     }
 }

@@ -84,11 +84,12 @@ class SrsSchedulerTest {
 
     @Test
     fun `due and new queues never overlap`() {
+        val base = System.currentTimeMillis()
         val items = listOf(
             DueItem("a", learned = false, reviewCount = 0, nextReview = 0L),
-            DueItem("b", learned = false, reviewCount = 3, nextReview = now - day),
-            DueItem("c", learned = true, reviewCount = 3, nextReview = now - day),
-            DueItem("d", learned = false, reviewCount = 3, nextReview = now + day)
+            DueItem("b", learned = false, reviewCount = 3, nextReview = base - day),
+            DueItem("c", learned = true, reviewCount = 3, nextReview = base - day),
+            DueItem("d", learned = false, reviewCount = 3, nextReview = base + day)
         )
         val due = SrsScheduler.dueItems(items).map { it.word }
         val fresh = SrsScheduler.newItems(items, 10).map { it.word }

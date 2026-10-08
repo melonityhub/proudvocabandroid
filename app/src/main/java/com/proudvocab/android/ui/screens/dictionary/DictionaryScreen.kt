@@ -38,7 +38,7 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -538,7 +538,7 @@ private fun EntrySheet(
                             onClick = { speaker.speak(entry.word, settings.learningLanguage) },
                             modifier = Modifier.size(34.dp)
                         ) {
-                            Icon(Icons.Rounded.VolumeUp, null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.AutoMirrored.Rounded.VolumeUp, null, tint = MaterialTheme.colorScheme.primary)
                         }
                         Text(
                             text = phonetic,

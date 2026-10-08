@@ -297,7 +297,7 @@ fun PlayerScreen(
 
 // ------------------------------------------------------------------- video
 
-@OptIn(UnstableApi::class)
+@UnstableApi
 @Composable
 private fun VideoSurface(vm: PlayerViewModel, modifier: Modifier = Modifier) {
     AndroidView(

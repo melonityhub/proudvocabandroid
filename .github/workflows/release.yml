@@ -150,7 +150,7 @@ jobs:
           declare -A version_codes=()
           for apk in "${expected[@]}"; do
             badging="$( "$aapt2" dump badging "$apk" 2>&1 )" || { echo "::error::aapt2 failed on $apk:"; printf '%s\n' "$badging" | tail -n 5; exit 1; }
-            vc="$(printf '%s\n' "$badging" | sed -n "s/^package:.*versionCode='([0-9]+)'.*/\1/p" | head -n1)"
+            vc="$(printf '%s\n' "$badging" | sed -n "s/^package:.*versionCode='\([0-9]*\)'.*/\1/p" | head -n1)"
             [ -n "$vc" ] || { echo "::error::No versionCode in $apk"; printf '%s\n' "$badging" | head -n 5; exit 1; }
             version_codes["$apk"]="$vc"
             echo "${apk}: versionCode=${vc}"
@@ -187,7 +187,10 @@ jobs:
             out="release-assets/proudvocab-${RELEASE_TAG}-${abi}.apk"
             cp "$apk" "$out"
             vc=""
-            [ -n "$aapt2" ] && vc="$( "$aapt2" dump badging "$apk" | sed -n "s/^package:.*versionCode='([0-9]+)'.*/\1/p" )"
+            if [ -n "$aapt2" ]; then
+              badging="$( "$aapt2" dump badging "$apk" 2>&1 || true )"
+              vc="$(printf '%s\n' "$badging" | sed -n "s/^package:.*versionCode='\([0-9]*\)'.*/\1/p" | head -n1)"
+            fi
             size="$(du -h "$out" | cut -f1)"
             table="$table
           | \`proudvocab-${RELEASE_TAG}-${abi}.apk\` | ${abi} | ${vc} | ${size} |"

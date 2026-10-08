@@ -199,11 +199,6 @@ androidComponents {
     }
 }
 
-// Room writes its schema here, so future migrations can be verified.
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-}
-
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

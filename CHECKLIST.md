@@ -268,13 +268,16 @@ written for the project owner, is [`BUGFIXES-FA.md`](BUGFIXES-FA.md).
 - [x] Unit tests extended suite still green (SRS, TextUtils, SubtitleParser,
       GameEngine, DeckExporter, StylePrefs, resource contract).
 - [x] `assembleDebug`, `assembleRelease` (4 ABI splits, signature checked),
-      `testDebugUnitTest`, `lintDebug` — green on this branch
-      (run 37852015556). The first attempt exposed a build-infra race:
-      the debug and release KSP tasks share one exported schema file
-      (`room.schemaLocation` is Room's read *and* write path), the writer
-      truncates it before writing, and a concurrent read dies with
-      `IllegalStateException: Empty schema file`. Single-module projects get
-      nothing from task parallelism, so `org.gradle.parallel=false` now
-      serialises the variants.
+      `testDebugUnitTest`, `lintDebug` — green on this branch. Getting there
+      surfaced and fixed a build-infra flake worth recording: with only
+      `room.schemaLocation` set, Room's KSP processor uses that one folder as
+      its read *and* write path for `schemas/.../1.json`, the writer truncates
+      the file before serialising, and an overlapping export read dies with
+      `IllegalStateException: Empty schema file`. The flake hit 3 of 6 CI runs
+      (persisting even with task parallelism disabled). Since nothing consumes
+      the exported schema yet (DB version 1, no migrations, no migration
+      tests), `exportSchema = false` removes the code path outright; re-enable
+      together with the Room Gradle plugin (per-variant schema folders) or a
+      committed schema file when real migrations arrive.
 - [ ] The manual on-device list above (unchanged — needs hardware).
 

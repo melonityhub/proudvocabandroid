@@ -1,0 +1,229 @@
+name: Release
+
+# Publishes a GitHub Release with the 4 release APKs (3 per-ABI splits +
+# universal) attached. Two ways to trigger it:
+#
+#   1. Push a version tag:        git tag v1.0.1 && git push origin v1.0.1
+#      (the workflow builds the tagged commit and creates the release)
+#   2. Actions UI → "Release" → "Run workflow" and enter tag_name (e.g.
+#      v1.0.1). If the tag doesn't exist yet it is created from the branch
+#      HEAD; if it exists, the release is (re)built from the tag's commit.
+#
+# The release step is idempotent: re-running it for a tag that already has
+# all 4 APKs exits without rebuilding.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to release, e.g. v1.0.1 (created from the branch HEAD if it doesn't exist yet)"
+        required: true
+        type: string
+
+# A re-triggered run for the same ref never needs to cancel its twin — the
+# release step is idempotent, so let any in-flight run finish.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  # Tag pushes run at the tag's commit; manual runs use the entered tag.
+  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.tag_name }}
+
+jobs:
+  release:
+    name: Build, sign and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Pin the exact commit to release
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${RELEASE_TAG:-}" ]; then
+            git fetch origin "refs/tags/${RELEASE_TAG}" 2>/dev/null || true
+            tag_sha="$(git rev-list -n 1 "refs/tags/${RELEASE_TAG}" 2>/dev/null || true)"
+            if [ -n "$tag_sha" ] && [ "$tag_sha" != "$(git rev-parse HEAD)" ]; then
+              echo "Tag ${RELEASE_TAG} points at ${tag_sha:0:7} — building that commit, not the branch HEAD."
+              git checkout --detach "$tag_sha"
+            fi
+          fi
+          echo "Releasing '${RELEASE_TAG:-<none>}' from $(git rev-parse --short HEAD)"
+
+      - name: Skip if this release is already complete
+        id: skip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG:-}" ]; then
+            echo "::error::No release tag: push a tag like v1.0.1, or run the workflow with tag_name filled in."
+            exit 1
+          fi
+          existing="$(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' 2>/dev/null || true)"
+          missing=0
+          for abi in arm64-v8a armeabi-v7a x86_64 universal; do
+            if ! grep -qx "proudvocab-${RELEASE_TAG}-${abi}.apk" <<<"$existing"; then
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 0 ]; then
+            echo "Release ${RELEASE_TAG} already has all 4 APKs — nothing to do."
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 17
+        if: steps.skip.outputs.done != 'true'
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Gradle
+        if: steps.skip.outputs.done != 'true'
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make the wrapper executable
+        if: steps.skip.outputs.done != 'true'
+        run: chmod +x ./gradlew
+
+      - name: Restore release keystore from secrets (if configured)
+        if: steps.skip.outputs.done != 'true' && secrets.PV_KEYSTORE_BASE64 != ''
+        env:
+          PV_KEYSTORE_BASE64: ${{ secrets.PV_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          ks_dir="$RUNNER_TEMP/keystore"
+          mkdir -p "$ks_dir"
+          printf '%s' "$PV_KEYSTORE_BASE64" | base64 -d > "$ks_dir/release.keystore"
+          {
+            echo "PV_KEYSTORE_FILE=$ks_dir/release.keystore"
+            echo "PV_KEYSTORE_PASSWORD=${{ secrets.PV_KEYSTORE_PASSWORD }}"
+            echo "PV_KEY_ALIAS=${{ secrets.PV_KEY_ALIAS }}"
+            echo "PV_KEY_PASSWORD=${{ secrets.PV_KEY_PASSWORD }}"
+          } >> "$GITHUB_ENV"
+          echo "Signing with the PV_KEYSTORE_* secrets (overrides the committed key)."
+
+      - name: Build release APKs
+        if: steps.skip.outputs.done != 'true'
+        run: ./gradlew :app:assembleRelease --stacktrace --no-daemon 2>&1 | tee build.log
+
+      - name: Verify split APKs
+        if: steps.skip.outputs.done != 'true'
+        run: |
+          set -euo pipefail
+          cd app/build/outputs/apk/release
+
+          expected=(
+            app-arm64-v8a-release.apk
+            app-armeabi-v7a-release.apk
+            app-x86_64-release.apk
+            app-universal-release.apk
+          )
+          for apk in "${expected[@]}"; do
+            [ -f "$apk" ] || { echo "::error::Missing $apk"; exit 1; }
+          done
+
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          aapt2="$(ls "$sdk_root"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -n 1 || true)"
+          [ -n "$aapt2" ] || { echo "::error::aapt2 not found under $sdk_root"; exit 1; }
+
+          declare -A version_codes=()
+          for apk in "${expected[@]}"; do
+            vc="$( "$aapt2" dump badging "$apk" | sed -n "s/^package:.*versionCode='([0-9]+)'.*/\1/p" )"
+            [ -n "$vc" ] || { echo "::error::No versionCode in $apk"; exit 1; }
+            version_codes["$apk"]="$vc"
+            echo "${apk}: versionCode=${vc}"
+          done
+
+          universal="${version_codes[app-universal-release.apk]}"
+          for apk in app-arm64-v8a-release.apk app-armeabi-v7a-release.apk app-x86_64-release.apk; do
+            code="${version_codes[$apk]}"
+            [ "$code" -gt "$universal" ] || { echo "::error::$apk ($code) must be newer than universal ($universal)"; exit 1; }
+          done
+          unique="$(printf '%s\n' "${version_codes[@]}" | sort -u | wc -l)"
+          [ "$unique" -eq "${#expected[@]}" ] || { echo "::error::versionCodes must be unique (got $unique)"; exit 1; }
+
+          echo "Verified: ${#expected[@]} split APKs, unique versionCodes, splits newer than universal."
+
+      - name: Create or refresh the GitHub release
+        if: steps.skip.outputs.done != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          short_sha="$(git rev-parse --short HEAD)"
+
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          aapt2="$(ls "$sdk_root"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -n 1 || true)"
+          apksigner="$(ls "$sdk_root"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -n 1 || true)"
+
+          mkdir -p release-assets
+          table="| Asset | ABI | versionCode | Size |
+          |---|---|---:|---:|"
+          for abi in arm64-v8a armeabi-v7a x86_64 universal; do
+            apk="app/build/outputs/apk/release/app-${abi}-release.apk"
+            out="release-assets/proudvocab-${RELEASE_TAG}-${abi}.apk"
+            cp "$apk" "$out"
+            vc=""
+            [ -n "$aapt2" ] && vc="$( "$aapt2" dump badging "$apk" | sed -n "s/^package:.*versionCode='([0-9]+)'.*/\1/p" )"
+            size="$(du -h "$out" | cut -f1)"
+            table="$table
+          | \`proudvocab-${RELEASE_TAG}-${abi}.apk\` | ${abi} | ${vc} | ${size} |"
+          done
+
+          fingerprint=""
+          if [ -n "$apksigner" ]; then
+            fingerprint="$( "$apksigner" verify --print-certs "release-assets/proudvocab-${RELEASE_TAG}-arm64-v8a.apk" 2>/dev/null | grep -oE 'SHA-256 digest: [0-9a-fA-F:]+' | head -n1 | sed 's/^SHA-256 digest: //' || true )"
+          fi
+
+          {
+            echo "## ProudVocab ${version}"
+            echo ""
+            echo "Release build of \`${short_sha}\` — one APK per CPU architecture plus a universal APK."
+            echo ""
+            echo "${table}"
+            if [ -n "$fingerprint" ]; then
+              echo ""
+              echo "Signed with the stable release key (\`${fingerprint}\`), so new releases install as in-place updates."
+            fi
+            echo ""
+            echo "**Which APK?**"
+            echo ""
+            echo "- Modern 64-bit phone or tablet → \`arm64-v8a\` (smallest)"
+            echo "- Older 32-bit ARM device → \`armeabi-v7a\`"
+            echo "- Intel/AMD or emulator → \`x86_64\`"
+            echo "- Not sure → \`universal\` (largest, contains every architecture)"
+            echo ""
+            echo "Install: allow \"install unknown apps\" for your browser or file manager, then open the APK."
+          } > release-notes.md
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} exists — refreshing assets and notes."
+            gh release upload "${RELEASE_TAG}" release-assets/*.apk --clobber
+            gh release edit "${RELEASE_TAG}" --title "ProudVocab ${version}" --notes-file release-notes.md
+          else
+            if ! git ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+              git tag "${RELEASE_TAG}"
+              git push origin "refs/tags/${RELEASE_TAG}"
+              echo "Created tag ${RELEASE_TAG} at ${short_sha} and pushed it."
+            fi
+            gh release create "${RELEASE_TAG}" \
+              --target "$(git rev-parse HEAD)" \
+              --title "ProudVocab ${version}" \
+              --notes-file release-notes.md \
+              release-assets/*.apk
+          fi

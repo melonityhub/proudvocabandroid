@@ -63,12 +63,15 @@ jobs:
       - name: Collect APKs
         run: |
           set -euo pipefail
+          find app/build/outputs -name "*.apk" | sort
           mkdir -p apks
           cp app/build/outputs/apk/release/app-arm64-v8a-release.apk apks/
           cp app/build/outputs/apk/release/app-armeabi-v7a-release.apk apks/
           cp app/build/outputs/apk/release/app-x86_64-release.apk apks/
           cp app/build/outputs/apk/release/app-universal-release.apk apks/
-          cp app/build/outputs/apk/debug/app-debug.apk apks/
+          # The debug variant is split per ABI too; the universal debug APK
+          # carries every ABI, so it is the one the emulators install.
+          cp app/build/outputs/apk/debug/app-universal-debug.apk apks/app-debug.apk
           cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk apks/
           ls -l apks
 

@@ -370,10 +370,17 @@ crashed next.
 - [x] Crash reproduced on an API 31 emulator **before** the fix (workflow run
       "Emulator repro (API 31)"; the logcat was committed for diagnosis and has
       since been removed from the repo — the stack trace above is the excerpt).
-- [ ] `assembleRelease` + `assembleDebugAndroidTest`, `testDebugUnitTest`,
-      `lintDebug` green (Android CI) after the fix.
-- [ ] Emulator smoke test green after the fix: device tests + launch +
-      playback + 800 monkey events, no crash, process alive.
-- [ ] Release 1.0.3 published (4 ABI APKs, signed with the committed release
-      key, installable in place over 1.0.1/1.0.2).
+- [x] `assembleRelease` + `assembleDebugAndroidTest`, `testDebugUnitTest`
+      (incl. the new `ColorCodecTest`), `lintDebug` green (Android CI).
+- [x] Instrumented tests green on the API 31 emulator: 8/8
+      (`:app:connectedDebugAndroidTest`), including
+      `playerViewModelInitializesOnDevice` — the exact 1.0.2 crash site — and
+      the windows-1256 decode test.
+- [x] Emulator smoke test green after the fix: launch + playback (sample MP4 +
+      English SRT + windows-1256 Persian SRT through real VIEW intents) +
+      800 monkey events, no crash, process alive. The same run also caught the
+      packed-colour crash (table above) before it was fixed.
+- [x] Release 1.0.3 published (4 ABI APKs, signed with the committed release
+      key, installable in place over 1.0.1/1.0.2) — published by pushing tag
+      `v1.0.3`, which runs the idempotent release workflow.
 

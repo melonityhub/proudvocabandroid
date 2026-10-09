@@ -270,11 +270,12 @@ ColorSpacesArray[63] به AIOOBE: length=18; index=63 می‌انجامد و ب�
 - [x] کرشِ دوم (رنگِ packedِ Compose) با همین تستِ امولاتور پیدا شد — یعنی
       «monkey» صفحه‌ی ترنسکریپت را باز کرد و برنامه هنگامِ measure کردنِ یک
       خطِ زیرنویس/styleشده مرد.
-- [ ] تست‌های JVM (`testDebugUnitTest`) سبز — از جمله `ColorCodecTest` جدید
+- [x] تست‌های JVM (`testDebugUnitTest`) سبز — از جمله `ColorCodecTest` جدید
       (toArgb() برای رنگ‌های پیش‌فرضِ برنامه هرگز throw نمی‌کند) و
       `SubtitleParserTest` (معنای الگوها تغییر نکرده).
-- [ ] `lintDebug` + `assembleRelease` + `assembleDebugAndroidTest` سبز.
-- [ ] Emulator smoke test سبز: launch + پخش + زیرنویس (EN + FA/windows-1256)
+- [x] `lintDebug` + `assembleRelease` + `assembleDebugAndroidTest` سبز.
+- [x] Emulator smoke test سبز: launch + پخش + زیرنویس (EN + FA/windows-1256)
       + ۸۰۰ رویدادِ monkey، بدون کرش، پروسه زنده.
-- [ ] انتشار نسخه‌ی **۱.۰.۳** (versionCode 4) روی GitHub — ۴ APK با امضای
-      کلیدیِ پایدار، قابل نصبِ روی ۱.۰.۱/۱.۰.۲.
+- [x] انتشار نسخه‌ی **۱.۰.۳** (versionCode 4) روی GitHub — ۴ APK با امضای
+      کلیدیِ پایدار، قابل نصبِ روی ۱.۰.۱/۱.۰.۲. انتشار با push کردنِ تگ
+      `v1.0.3` انجام می‌شود که workflowِ release.yml (idempotent) را اجرا می‌کند.

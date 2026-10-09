@@ -1,0 +1,99 @@
+name: Emulator repro (API 31)
+
+# TEMPORARY debugging workflow — reproduces the "app crashes on open" report
+# from a real Android 12 device (Poco X3 Pro, Android 12 = API 31) on a
+# GitHub-hosted emulator, and pushes the logcat back to this branch so the
+# crash can be diagnosed from the stack trace.
+#
+# Trigger: push to arena/e9c0f979-proudvocabandroid, or Run workflow.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["arena/e9c0f979-proudvocabandroid"]
+
+permissions:
+  contents: write
+
+jobs:
+  emulator:
+    name: Boot API 31 emulator, install release APK, launch, capture logcat
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make the wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Build the release APK (universal)
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Install, launch and stress the app on an API 31 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          arch: x86_64
+          target: default
+          script: |
+            set -x
+            adb devices
+            adb install -r app/build/outputs/apk/release/app-universal-release.apk
+            adb shell am start -n com.proudvocab.android/com.proudvocab.android.MainActivity
+            sleep 20
+            adb shell ps -A > "$GITHUB_WORKSPACE/ps-after-launch.txt" 2>&1 || true
+            # Random taps exercise every screen; a crash shows up in logcat.
+            adb shell monkey -p com.proudvocab.android -c android.intent.category.LAUNCHER --throttle 300 400 || true
+            sleep 15
+            adb shell ps -A > "$GITHUB_WORKSPACE/ps-after-monkey.txt" 2>&1 || true
+            adb logcat -d > "$GITHUB_WORKSPACE/logcat.txt" 2>&1 || true
+            adb shell am force-stop com.proudvocab.android || true
+            wc -l "$GITHUB_WORKSPACE/logcat.txt"
+
+      - name: Analyse the log for crashes
+        run: |
+          set -x
+          echo "== process after launch =="
+          grep -i proudvocab ps-after-launch.txt || echo "PROCESS NOT RUNNING AFTER LAUNCH"
+          echo "== process after monkey =="
+          grep -i proudvocab ps-after-monkey.txt || echo "PROCESS NOT RUNNING AFTER MONKEY"
+          echo "== FATAL EXCEPTION blocks =="
+          grep -n "FATAL EXCEPTION" logcat.txt || echo "no FATAL EXCEPTION line"
+          echo "== AndroidRuntime errors =="
+          grep -n "AndroidRuntime" logcat.txt | head -40 || true
+
+      - name: Gate on a reproduced crash
+        run: |
+          if grep -q "FATAL EXCEPTION" logcat.txt; then
+            echo "::error::Crash reproduced on the API 31 emulator — see logcat.txt"
+            exit 1
+          fi
+          if ! grep -qi proudvocab ps-after-launch.txt; then
+            echo "::error::App process died right after launch"
+            exit 1
+          fi
+          echo "No crash: the app stayed alive through launch + 400 monkey events."
+
+      - name: Publish logs to this branch
+        if: always()
+        run: |
+          git config user.name "arena-ci"
+          git config user.email "arena-ci@users.noreply.github.com"
+          mkdir -p ci-logs
+          cp logcat.txt ci-logs/emulator-logcat.txt
+          cp ps-after-launch.txt ci-logs/ps-after-launch.txt
+          cp ps-after-monkey.txt ci-logs/ps-after-monkey.txt
+          git add -f ci-logs/
+          git commit -m "ci: API 31 emulator logcat (crash repro) [skip ci]" || true
+          git push origin HEAD:arena/e9c0f979-proudvocabandroid

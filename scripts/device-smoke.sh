@@ -27,6 +27,7 @@ PREVIOUS_RELEASE="${PREVIOUS_RELEASE:-v1.0.3}"
 ROOT="$(pwd)"
 OUT="$ROOT/ci-artifacts/$ABI"
 MEDIA_DIR="/sdcard/Download/pv-smoke"
+APK_DIR="${APK_DIR:-apks}"   # built once by the `build` job and downloaded here
 mkdir -p "$OUT/screens" "$OUT/previous"
 
 FAILURES=0
@@ -165,19 +166,40 @@ make_fixtures() {
 }
 
 # ------------------------------------------------------------ 1. device tests
+# Installs the pre-built debug app and its instrumentation APK, then runs them
+# with `am instrument`. No Gradle here: the arm64 runner cannot run AGP's aapt2.
 run_device_tests() {
   step "1/4 instrumented tests (UI language: '${PV_LOCALE:-device default}')"
-  ./gradlew :app:connectedDebugAndroidTest --no-daemon \
-    "-Pandroid.testInstrumentationRunnerArguments.pvLocale=$PV_LOCALE" \
-    > "$OUT/connected-tests.log" 2>&1
-  local rc=$?
-  tail -40 "$OUT/connected-tests.log"
-  mkdir -p "$OUT/test-results"
-  find app/build/outputs/androidTest-results -name '*.xml' -exec cp {} "$OUT/test-results/" \; 2>/dev/null || true
-  if [ "$rc" -ne 0 ]; then
-    fail "instrumented tests failed (gradle exit $rc) — see connected-tests.log and test-results/"
+  local app_apk="$ROOT/$APK_DIR/app-debug.apk"
+  local test_apk="$ROOT/$APK_DIR/app-debug-androidTest.apk"
+  for f in "$app_apk" "$test_apk"; do
+    [ -f "$f" ] || { fail "missing $f"; return 1; }
+  done
+  adb uninstall "$PKG.debug" >/dev/null 2>&1 || true
+  adb uninstall "$PKG.debug.test" >/dev/null 2>&1 || true
+  install_apk "$app_apk" "tests-app" || return 1
+  install_apk "$test_apk" "tests-apk" || return 1
+
+  local component
+  component="$(adb shell pm list instrumentation 2>/dev/null | tr -d '\r' \
+    | sed -n 's/^instrumentation:\([^ ]*\) .*/\1/p' | grep "^$PKG" | head -n1)"
+  if [ -z "$component" ]; then
+    fail "no instrumentation for $PKG.debug was registered"
+    return 1
+  fi
+  echo "instrumentation: $component"
+
+  local log="$OUT/instrumented-tests.txt"
+  adb logcat -c 2>/dev/null || true
+  adb shell "am instrument -w -e pvLocale '$PV_LOCALE' $component" 2>&1 | tr -d '\r' > "$log"
+  adb logcat -d -v threadtime > "$OUT/logcat-tests.txt" 2>&1 || true
+  tail -n 30 "$log"
+
+  if grep -q "^OK (" "$log" && ! grep -q "FAILURES!!!\|INSTRUMENTATION_FAILED\|Process crashed" "$log"; then
+    pass "instrumented tests passed (${PV_LOCALE:-device default} UI): $(grep '^OK (' "$log" | head -n1)"
   else
-    pass "instrumented tests passed (${PV_LOCALE:-device default} UI)"
+    fail "instrumented tests failed (${PV_LOCALE:-device default} UI) — see instrumented-tests.txt and logcat-tests.txt"
+    return 1
   fi
 }
 
@@ -205,7 +227,7 @@ run_previous_release() {
 # ------------------------------------------------------- 3. upgrade in place
 run_upgrade() {
   step "3/4 upgrade this build over the previous install"
-  local new_apk="$ROOT/app/build/outputs/apk/release/app-$ABI-release.apk"
+  local new_apk="$ROOT/$APK_DIR/app-$ABI-release.apk"
   if [ ! -f "$new_apk" ]; then
     fail "release APK missing: $new_apk"
     return 1

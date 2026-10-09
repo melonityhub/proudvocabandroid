@@ -91,8 +91,11 @@ jobs:
             sleep 10
             echo "== 4/5 open a sample video + subtitles through VIEW intents =="
             ffmpeg -y -loglevel error -f lavfi -i testsrc=duration=8:size=320x240:rate=15 -f lavfi -i sine=frequency=440:duration=8 -pix_fmt yuv420p -shortest sample.mp4 || true
-            printf '1\n00:00:01,000 --> 00:00:03,000\nHello world, this is a beautiful day\n\n2\n00:00:04,000 --> 00:00:06,500\nThe quick brown fox jumps over the lazy dog\n\n3\n00:00:06,800 --> 00:00:08,000\nThank you very much\n' > sample.srt
-            python3 -c "open('sample-fa.srt','wb').write('1\n00:00:01,000 --> 00:00:03,000\nسلام دنیا\n\n2\n00:00:04,000 --> 00:00:06,500\nاین یک روز قشنگ است\n'.encode('cp1256'))"
+            printf '1\n00:00:01,000 --> 00:00:03,000\nHello world, this is a beautiful day\n\n2\n00:00:04,000 --> 00:00:06,500\nThe quick brown fox jumps over the lazy dog\n\n3\n00:00:06,800 --> 00:00:08,000\nThank you very much\n' > sample.srt || true
+            # The Persian sample must be representable in windows-1256: the
+            # code page has no Farsi ی (U+06CC) nor ک/چ/گ/پ/ژ, and encoding
+            # those raises (or substitutes 0x1A), which would abort this line.
+            python3 -c "open('sample-fa.srt','wb').write('1\n00:00:01,000 --> 00:00:03,000\nسلام بر شما\n\n2\n00:00:04,000 --> 00:00:06,500\nممنون از شما\n'.encode('cp1256'))" || true
             adb shell mkdir -p "$MEDIA_DIR" || true
             adb push sample.mp4 "$MEDIA_DIR/sample.mp4" || true
             adb push sample.srt "$MEDIA_DIR/sample.srt" || true

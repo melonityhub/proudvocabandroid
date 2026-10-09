@@ -72,11 +72,20 @@ class SubtitleParserDeviceTest {
 
     @Test
     fun windows1256EncodedSrtIsDecodedOnDevice() {
-        val srt = "1\n00:00:01,000 --> 00:00:02,000\nسلام دنیا\n"
-        val bytes = srt.toByteArray(charset("windows-1256"))
-        val cues = SubtitleParser.parse(bytes)
+        // The bytes are spelled out explicitly on purpose: the windows-1256
+        // code page has no Farsi Yeh (ی, U+06CC) nor ک/چ/گ/پ/ژ, so a text
+        // containing them cannot round-trip through the platform encoder
+        // (ICU substitutes 0x1A). "سلام بر شما" in cp1256 is:
+        // D3 E1 C7 E3 20 C8 D1 20 D4 E3 C7.
+        val ascii = "1\n00:00:01,000 --> 00:00:02,000\n".toByteArray(Charsets.US_ASCII)
+        val fa = byteArrayOf(
+            0xD3.toByte(), 0xE1.toByte(), 0xC7.toByte(), 0xE3.toByte(), 0x20,
+            0xC8.toByte(), 0xD1.toByte(), 0x20, 0xD4.toByte(), 0xE3.toByte(),
+            0xC7.toByte()
+        )
+        val cues = SubtitleParser.parse(ascii + fa + byteArrayOf(0x0A))
         assertEquals(1, cues.size)
-        assertEquals("سلام دنیا", cues[0].text)
+        assertEquals("سلام بر شما", cues[0].text)
     }
 
     @Test
@@ -88,6 +97,4 @@ class SubtitleParserDeviceTest {
         assertEquals(-1, SubtitleParser.cueIndexAt(shifted, 5_000L))
         assertEquals("0:01", SubtitleParser.formatTime(1_000L))
     }
-
-    private fun charset(name: String) = java.nio.charset.Charset.forName(name)
 }

@@ -1,5 +1,7 @@
 package com.proudvocab.android.core.util
 
+import androidx.compose.ui.graphics.Color
+
 /**
  * `#RRGGBB` / `#AARRGGBB` <-> packed colour helpers.
  * Pure Kotlin so they are unit testable and usable from settings previews.
@@ -27,6 +29,20 @@ object ColorCodec {
 
     /** `ULong` packed form used by `androidx.compose.ui.graphics.Color`. */
     fun parseULong(value: String?): ULong? = parse(value)?.toULong()
+
+    /**
+     * Parses to a Compose [Color] (sRGB). Returns null on error.
+     *
+     * This must go through [Color]'s `Int` constructor: since Compose 1.7 the
+     * packed `Color` value stores the colour-space id in its LOW 6 bits and
+     * the ARGB components at bits 32-63 (`Color(Int)` does `argb shl 32`).
+     * Building `Color(argb.toULong())` directly — the raw value-class
+     * constructor — leaves the colour-space id equal to `argb and 0x3F`,
+     * which is >= 18 for most colours and crashes with
+     * `ArrayIndexOutOfBoundsException: length=18; index=…` the first time the
+     * colour is converted (e.g. while laying out a `Text`).
+     */
+    fun parseColor(value: String?): Color? = parse(value)?.let { Color(it.toInt()) }
 
     fun toHex(argb: ULong): String {
         val v = argb and 0xFFFFFFFFu

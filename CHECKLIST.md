@@ -330,6 +330,7 @@ crashed next.
 | Area | Defect | Fix |
 |---|---|---|
 | **Subtitle regexes** | `MICRODVD` (`^\{(\d+)\}\{(\d+)}(.*)$`) and `ASS_OVERRIDE` (`\{[^}]*}`) use brace escapes / bare braces that Android's ICU engine rejects with `PatternSyntaxException`; inside an `object` initializer that surfaces as `ExceptionInInitializerError` → **the app crashed at launch** whenever the player screen was composed. | Both patterns rewritten with character classes — `^[{](\d+)[}][{](\d+)[}](.*)$` and `[{][^}]*[}]` — valid on every engine, semantics unchanged (same capture groups, verified). A comment in the file records why escapes must not be used. |
+| **Packed colour construction** | Every settings-derived colour — subtitle primary `#FFFFFFFF` (colour-space id 63), subtitle secondary/background, accent, app text colours, swatches — was built with the raw `Color(ULong)` value-class constructor. Since Compose 1.7 a packed `Color` stores the colour-space id in its **low 6 bits** and the ARGB components at bits 32-63 (`Color(Int)` does `argb shl 32`), so the id came out as `argb and 0x3F` — ≥ 18 for nearly every colour — and the first `toArgb()` (e.g. while measuring a `Text`) threw `ArrayIndexOutOfBoundsException: length=18; index=63` and killed the app. Found by the emulator smoke run after the regex fix: the monkey opened the transcript sheet and the app died measuring a subtitle-styled line. | `ColorCodec.parseColor()` added (goes through `Color(Int)`); all 7 call sites (Style.kt ×2, Theme.kt ×3, Widgets.kt, PlayerScreen.kt) now use it. `ColorCodecTest` asserts `toArgb()` never throws for the shipped default colours — the JVM tests run the same ui-graphics code, so this is now caught without a device. |
 
 ### Game logic
 
@@ -361,7 +362,8 @@ crashed next.
       400 events, and fails the job if the package crashed or died. Runs on
       pull requests, on pushes to `arena/**`, and manually.
 - [x] JVM unit tests still green; the MicroDVD/ASS patterns keep identical
-      semantics (`SubtitleParserTest` unchanged and passing).
+      semantics (`SubtitleParserTest` unchanged and passing) and the new
+      `ColorCodecTest` guards the colour fix.
 
 ### Verification status
 

@@ -210,7 +210,49 @@ JVM از `java.util.regex` دسکتاپ استفاده می‌کند که این
 |---|---|---|
 | **regexهای زیرنویس** | `MICRODVD` (`^\{(\d+)\}\{(\d+)}(.*)$`) و `ASS_OVERRIDE` (`\{[^}]*}`) با escape و آکولادهایی که موتور ICU قبول نمی‌کند، نامعتبر بودند → `ExceptionInInitializerError` در اولین لمسِ `SubtitleParser` → **کرش در لحظه‌ی ورود**. | هر دو الگو با character class بازنویسی شدند: `^[{](\d+)[}][{](\d+)[}](.*)$` و `[{][^}]*[}]` — روی همه‌ی موتورها معتبرند و معنای الگو دقیقاً همان قبلی است (گروه‌های capture یکسان). یک کامنت هم در خودِ فایل نوشته شده که چرا نباید از escape استفاده کرد. |
 
-## ۲. باگ‌های دیگرِ پیدا‌شده در این دور
+## ۲. کرشِ دوم — رنگِ نادرستِ Compose (AIOOBE: length=18; index=63)
+
+بعد از رفع کرشِ اول، تستِ امولاتور دوباره اجرا شد؛ این‌بار «monkey» چند صفحه را
+گشت و برنامه در ساعت ۰۲:۴۲:۴۱ کرش کرد. logcat:
+
+```
+E AndroidRuntime: FATAL EXCEPTION: main
+E AndroidRuntime: Process: com.proudvocab.android, PID: 2915
+E AndroidRuntime: java.lang.ArrayIndexOutOfBoundsException: length=18; index=63
+E AndroidRuntime:     at androidx.compose.ui.graphics.Color.getColorSpace-impl(Color.kt:724)
+E AndroidRuntime:     at androidx.compose.ui.graphics.Color.convert-vNxB06k(Color.kt:142)
+E AndroidRuntime:     at androidx.compose.ui.graphics.ColorKt.toArgb-8_81llA(Color.kt:689)
+E AndroidRuntime:     at androidx.compose.ui.text.platform.AndroidTextPaint.setColor-8_81llA(AndroidTextPaint.android.kt:106)
+E AndroidRuntime:     at androidx.compose.ui.text.platform.extensions.TextPaintExtensions_androidKt.applySpanStyle(TextPaintExtensions.android.kt:97)
+E AndroidRuntime:     at androidx.compose.ui.text.platform.AndroidParagraphIntrinsics.<init>(AndroidParagraphIntrinsics.android.kt:108)
+...
+E AndroidRuntime:     at androidx.compose.foundation.lazy.layout.PrefetchHandleProvider...performMeasure
+```
+
+### علت، دقیق
+
+از Compose 1.7 به بعد، مقدارِ packedِ Color این‌گونه چیده شده است: ۶ بیتِ پایینی
+(بیت‌های ۰ تا ۵) شناسه‌ی فضای رنگ هستند (۱۸ مقدارِ معتبر: ۰ تا ۱۷) و بیت‌های ۳۲ تا
+۶۳ مؤلفه‌های ARGB را نگه می‌دارند. یعنی سازنده‌ی Color(Int) عملیات «argb shl 32» را
+انجام می‌دهد.
+
+برنامه‌ی ما رنگ‌ها را با ColorCodec.parseULong می‌گرفت (یک ULongِ خامِ ARGB؛ مثلاً
+#FFFFFFFF → 0xFFFFFFFF) و با سازنده‌ی خامِ value class — یعنی Color(thatULong) —
+می‌ساخت. در این حالت ۶ بیتِ پایینیِ مقدار، «شناسه‌ی فضای رنگ» می‌شود: برای
+#FFFFFFFF → ۶۳! و اولین تبدیلِ رنگ (مثلاً toArgb هنگامِ measure کردنِ یک Text) با
+ColorSpacesArray[63] به AIOOBE: length=18; index=63 می‌انجامد و برنامه می‌میرد.
+
+نکته‌ی جالب: رنگ‌های ثابتِ Color(0xFF22C55E) (لیترال‌های Int) هیچ مشکلی نداشتند
+چون به سازنده‌ی Color(Int) می‌رسیدند که shl 32 می‌کند — به همین خاطر برنامه تا
+رسیدن به صفحه‌ی ترنسکریپت/زیرنویس زنده می‌ماند.
+
+### رفع
+
+| بخش | باگ | رفع |
+|---|---|---|
+| **ساخت رنگِ packed** | هر رنگِ گرفته‌شده از تنظیمات (رنگِ اول/دومِ زیرنویس، پس‌زمینه‌ی زیرنویس، رنگِ accent، رنگِ متنِ برنامه، دکمه‌های رنگی) با سازنده‌ی خامِ Color(ULong) ساخته می‌شد؛ در نتیجه شناسه‌ی فضای رنگ برابرِ «argb and 0x3F» می‌شد (برای #FFFFFFFF → ۶۳) که بزرگ‌تر از ۱۸ است → کرش با AIOOBE: length=18; index=63 در اولین toArgb(). | ColorCodec.parseColor() اضافه شد (از سازنده‌ی Color(Int) می‌گذرد که shl 32 می‌کند)؛ هر ۷ سایتِ استفاده (Style.kt ×۲، Theme.kt ×۳، Widgets.kt، PlayerScreen.kt) حالا از آن استفاده می‌کنند. تستِ ColorCodecTest چک می‌کند که toArgb() برای رنگ‌های پیش‌فرضِ برنامه هرگز throw نمی‌کند — تست‌های JVM همان کدِ ui-graphics را اجرا می‌کنند، پس این باگ حالا بدون نیاز به دستگاه هم گرفته می‌شود. |
+
+## ۳. باگ‌های دیگرِ پیدا‌شده در این دور
 
 | بخش | باگ | رفع |
 |---|---|---|
@@ -218,13 +260,20 @@ JVM از `java.util.regex` دسکتاپ استفاده می‌کند که این
 | **«پاک‌کردنِ همه‌چیز»** | واژه‌های **علاقه‌مندی** پاک نمی‌شدند — در DAO اصلاً `DELETE FROM favourites` وجود نداشت. | `VocabDao.clearFavourites()` + `VocabRepository.clearFavourites()` اضافه شد و از `eraseEverything` صدا زده می‌شود. |
 | **«پاک‌کردنِ همه‌چیز»** | ریستِ تنظیمات `dictionaryImported` را صفر می‌کرد ولی فایلِ دیکشنریِ واردشده روی دیسک می‌ماند؛ پس موتورِ دیکشنری همچنان از دیکشنریِ واردشده استفاده می‌کرد در حالی که UI می‌گفت «دیکشنری starter» در حال استفاده است. همچنین نسخه‌ی ذخیره‌شده‌ی زبانِ UI هم بعد از ریست می‌ماند. | `eraseEverything` حالا فایلِ دیکشنریِ واردشده را هم حذف می‌کند و `LocaleStore` را هم ریست می‌کند. |
 
-## ۳. چک‌لیستِ نهاییِ ۱.۰.۳
+## ۴. چک‌لیستِ نهاییِ ۱.۰.۳
 
-- [x] کرش روی امولاتور API 31 **قبل از رفع** بازتولید شد (run «Emulator repro
-      (API 31)») و logcatِ کاملِ آن تحلیل شد.
-- [ ] تست‌های JVM (`testDebugUnitTest`) سبز — معنای الگوها تغییر نکرده.
+- [x] کرشِ اول (regexِ زیرنویس) روی امولاتور API 31 **قبل از رفع** بازتولید شد
+      (run «Emulator repro (API 31)») و logcatِ کاملِ آن تحلیل شد.
+- [x] تست‌های on-device (`connectedDebugAndroidTest`) سبز — ۸/۸ تست، از جمله
+      `playerViewModelInitializesOnDevice` (دقیقاً همان‌جا که ۱.۰.۲ می‌بست) و
+      تستِ windows-1256.
+- [x] کرشِ دوم (رنگِ packedِ Compose) با همین تستِ امولاتور پیدا شد — یعنی
+      «monkey» صفحه‌ی ترنسکریپت را باز کرد و برنامه هنگامِ measure کردنِ یک
+      خطِ زیرنویس/styleشده مرد.
+- [ ] تست‌های JVM (`testDebugUnitTest`) سبز — از جمله `ColorCodecTest` جدید
+      (toArgb() برای رنگ‌های پیش‌فرضِ برنامه هرگز throw نمی‌کند) و
+      `SubtitleParserTest` (معنای الگوها تغییر نکرده).
 - [ ] `lintDebug` + `assembleRelease` + `assembleDebugAndroidTest` سبز.
-- [ ] تست‌های on-device (`connectedDebugAndroidTest`) روی امولاتور API 31 سبز.
 - [ ] Emulator smoke test سبز: launch + پخش + زیرنویس (EN + FA/windows-1256)
       + ۸۰۰ رویدادِ monkey، بدون کرش، پروسه زنده.
 - [ ] انتشار نسخه‌ی **۱.۰.۳** (versionCode 4) روی GitHub — ۴ APK با امضای

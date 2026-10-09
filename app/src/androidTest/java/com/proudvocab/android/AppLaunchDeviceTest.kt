@@ -5,6 +5,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.proudvocab.android.ui.screens.player.PlayerViewModel
 import org.junit.Assert.assertFalse
 import org.junit.Test

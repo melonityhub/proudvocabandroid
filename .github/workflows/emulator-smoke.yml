@@ -59,7 +59,9 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build the release APK and the device-test APKs
-        run: ./gradlew :app:assembleRelease :app:assembleDebugAndroidTest --no-daemon
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleRelease :app:assembleDebugAndroidTest --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
       - name: Run the whole smoke suite on an API 31 emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -156,6 +158,10 @@ jobs:
       - name: Summarise the captured log
         if: always()
         run: |
+          echo "== build log tail =="
+          tail -40 build.log 2>/dev/null || echo "(no build.log)"
+          echo "== smoke log tail =="
+          tail -40 smoke.log 2>/dev/null || echo "(no smoke.log)"
           echo "== process after launch =="
           grep -i proudvocab ps-after-launch.txt || echo "PROCESS NOT RUNNING AFTER LAUNCH"
           echo "== process after monkey =="
@@ -175,6 +181,8 @@ jobs:
             emulator-logcat.txt
             ps-after-launch.txt
             ps-after-monkey.txt
+            build.log
+            smoke.log
           if-no-files-found: warn
 
       - name: Publish logs to this branch (push events, on failure)
@@ -183,9 +191,11 @@ jobs:
           git config user.name "arena-ci"
           git config user.email "arena-ci@users.noreply.github.com"
           mkdir -p ci-logs
-          cp emulator-logcat.txt ci-logs/emulator-logcat.txt
-          cp ps-after-launch.txt ci-logs/ps-after-launch.txt
-          cp ps-after-monkey.txt ci-logs/ps-after-monkey.txt
+          cp emulator-logcat.txt ci-logs/emulator-logcat.txt 2>/dev/null || true
+          cp ps-after-launch.txt ci-logs/ps-after-launch.txt 2>/dev/null || true
+          cp ps-after-monkey.txt ci-logs/ps-after-monkey.txt 2>/dev/null || true
+          cp build.log ci-logs/build.log 2>/dev/null || true
+          cp smoke.log ci-logs/smoke.log 2>/dev/null || true
           git add -f ci-logs/
           git commit -m "ci: API 31 emulator logs (smoke test failed) [skip ci]" || true
           git push origin "HEAD:${GITHUB_REF_NAME}"

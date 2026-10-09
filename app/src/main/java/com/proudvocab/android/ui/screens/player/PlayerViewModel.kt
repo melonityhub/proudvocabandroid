@@ -281,7 +281,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             // have loaded a different file in the meantime — never overwrite it.
             if (video != null && _uiState.value.videoUri == null) {
                 val uri = runCatching { Uri.parse(video) }.getOrNull()
-                if (uri != null && canRead(context, uri)) {
+                if (uri != null && withContext(Dispatchers.IO) { canRead(context, uri) }) {
                     openVideo(context, uri, rememberTitle = false, autoPlay = false)
                 } else {
                     settings.update { s -> s.copy(lastVideoUri = "") }
@@ -290,7 +290,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
             if (subtitle != null && _uiState.value.cues.isEmpty()) {
                 val uri = runCatching { Uri.parse(subtitle) }.getOrNull()
-                if (uri != null && canRead(context, uri)) {
+                if (uri != null && withContext(Dispatchers.IO) { canRead(context, uri) }) {
                     loadSubtitle(context, uri)
                 } else {
                     settings.update { s -> s.copy(lastSubtitleUri = "") }
@@ -593,7 +593,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 isPhrasal -> WordKind.PHRASAL.id
                 else -> WordKind.WORD.id
             }
-            val savedWord = vocab.find(clean, s.learningLanguage)
+            val savedWord = safelyOrNull { vocab.find(clean, s.learningLanguage) }
             _uiState.update {
                 it.copy(
                     lookup = WordLookup(
@@ -624,11 +624,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     ?: dictionary.gloss(clean).takeIf { it.isNotBlank() }
             } else null
 
-            val result = translation.translate(
-                text = clean,
-                source = s.learningLanguage,
-                target = s.translationLanguage
-            )
+            // Engines report failures through Result, but a bug or a native
+            // error inside one of them must still end as a failed lookup and
+            // never as an uncaught exception in viewModelScope.
+            val result = try {
+                translation.translate(
+                    text = clean,
+                    source = s.learningLanguage,
+                    target = s.translationLanguage
+                )
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                Result.failure(error)
+            }
             val latestSettings = _settingsState.value
             val latestLookup = _uiState.value.lookup
             if (latestLookup == null || latestLookup.word != clean ||
@@ -664,8 +673,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
             }
-            vocab.addHistory(clean, s.learningLanguage)
+            safelyOrNull { vocab.addHistory(clean, s.learningLanguage) }
         }
+    }
+
+    /**
+     * Runs a best-effort database call. Any failure becomes null, but
+     * cancellation is always rethrown so structured concurrency still works.
+     */
+    private suspend fun <T> safelyOrNull(block: suspend () -> T): T? = try {
+        block()
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (error: Throwable) {
+        android.util.Log.w("ProudVocab", "lookup side-effect failed", error)
+        null
     }
 
     fun dismissLookup() {
@@ -680,33 +702,42 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun toggleSaveLookup() {
         val lookup = _uiState.value.lookup ?: return
         viewModelScope.launch {
-            val s = _settingsState.value
-            val existing = vocab.find(lookup.word, s.learningLanguage)
-            if (_uiState.value.lookup?.word != lookup.word) return@launch
-            if (existing != null) {
-                vocab.delete(existing)
-                _uiState.update {
-                    it.copy(lookup = it.lookup?.copy(saved = false, tags = emptyList()))
-                }
-            } else {
-                val savedWord = vocab.save(
-                    word = lookup.word,
-                    language = s.learningLanguage,
-                    translation = lookup.translation.orEmpty(),
-                    contextSentence = lookup.contextSentence,
-                    sourceTitle = _uiState.value.videoTitle,
-                    cefr = lookup.cefr.orEmpty(),
-                    phonetic = lookup.entry?.phoneticUs.orEmpty(),
-                    partOfSpeech = lookup.entry?.meanings?.firstOrNull()?.posNameEn.orEmpty(),
-                    kind = lookup.kind
-                )
-                vocab.recordStudy(newWords = 1)
-                _uiState.update {
-                    it.copy(
-                        lookup = it.lookup?.copy(saved = true, tags = savedWord.tagsList),
-                        sessionSavedWords = it.sessionSavedWords + 1
+            // Database failures must become a message, never an uncaught
+            // exception: viewModelScope has no handler, so it would kill the app.
+            runCatching {
+                val s = _settingsState.value
+                val existing = vocab.find(lookup.word, s.learningLanguage)
+                if (_uiState.value.lookup?.word == lookup.word) {
+                if (existing != null) {
+                    vocab.delete(existing)
+                    _uiState.update {
+                        it.copy(lookup = it.lookup?.copy(saved = false, tags = emptyList()))
+                    }
+                } else {
+                    val savedWord = vocab.save(
+                        word = lookup.word,
+                        language = s.learningLanguage,
+                        translation = lookup.translation.orEmpty(),
+                        contextSentence = lookup.contextSentence,
+                        sourceTitle = _uiState.value.videoTitle,
+                        cefr = lookup.cefr.orEmpty(),
+                        phonetic = lookup.entry?.phoneticUs.orEmpty(),
+                        partOfSpeech = lookup.entry?.meanings?.firstOrNull()?.posNameEn.orEmpty(),
+                        kind = lookup.kind
                     )
+                    vocab.recordStudy(newWords = 1)
+                    _uiState.update {
+                        it.copy(
+                            lookup = it.lookup?.copy(saved = true, tags = savedWord.tagsList),
+                            sessionSavedWords = it.sessionSavedWords + 1
+                        )
+                    }
                 }
+                }
+            }.onFailure { error ->
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                android.util.Log.w("ProudVocab", "saving the word failed", error)
+                _uiState.update { it.copy(message = "save_fail") }
             }
         }
     }

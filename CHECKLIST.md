@@ -1,3 +1,5 @@
+> **یادداشت ممیزی ۱.۰.۴:** ادعاهای «تأیید روی دستگاه» و «رفع کرش» در این فایل تأییدنشده بودند. وضعیت واقعی و فهرست باگ‌ها در `AUDIT-FA.md` است.
+
 # ProudVocab Android — verification checklist
 
 Every item below is checked against the code, not against intentions. The last

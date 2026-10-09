@@ -17,8 +17,8 @@ android {
         applicationId = "com.proudvocab.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += setOf("en", "fa", "tr", "de", "fr", "es", "ar", "ru")
@@ -245,6 +245,10 @@ dependencies {
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.monitor)
     androidTestImplementation(libs.androidx.test.runner)
+    // Compose UI tests: drive every tab and settings page on the device.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
 // Full assertion messages in the CI log — a bare "FAILED" is not enough to

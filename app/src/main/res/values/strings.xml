@@ -411,4 +411,5 @@
 
     <string name="settings_export_failed_hint">Could not create the file</string>
 
+    <string name="player_save_fail">Could not save this word. Please try again.</string>
 </resources>

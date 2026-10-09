@@ -117,14 +117,18 @@ class FontRepository(private val context: Context) {
             val safe = name.filter { it.isLetterOrDigit() || it == '.' || it == '_' || it == '-' }
                 .ifBlank { "font_${System.currentTimeMillis()}.ttf" }
             val target = File(fontsDir, safe)
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(target).use { output -> input.copyTo(output) }
-            } ?: error("cannot read the file")
-            // Fail fast and loudly when the file is not a real font.
-            val probe = Typeface.createFromFile(target)
-            if (probe == null || probe == Typeface.DEFAULT && target.extension !in setOf("ttf", "otf")) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    FileOutputStream(target).use { output -> input.copyTo(output) }
+                } ?: error("cannot read the file")
+                // Fail fast when the file is not a real font. Typeface throws
+                // for garbage input, so the probe itself must be guarded; the
+                // copy is removed so it never shows up in the font list.
+                val probe = runCatching { Typeface.createFromFile(target) }.getOrNull()
+                if (probe == null) error("not a font file")
+            } catch (error: Throwable) {
                 target.delete()
-                error("not a font file")
+                throw error
             }
             cache.clear()
             FontOption(

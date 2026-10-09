@@ -126,8 +126,12 @@ class OfflineTranslator(private val context: Context) {
             .setSourceLanguage(source)
             .setTargetLanguage(target)
             .build()
+        // No downloadModelIfNeeded() here. This runs inside the translation
+        // path (subtitle lines, word lookups); a download started from there
+        // would fetch tens of megabytes without the user asking for it. Models
+        // are only fetched by the explicit download() action in Settings, and
+        // TranslationManager only routes here when both models are present.
         val translator = Translation.getClient(options)
-        translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).awaitCompletion()
         translators[k] = translator
         return translator
     }

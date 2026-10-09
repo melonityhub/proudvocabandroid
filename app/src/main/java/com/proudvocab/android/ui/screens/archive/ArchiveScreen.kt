@@ -71,6 +71,7 @@ import com.proudvocab.android.core.settings.StyleTarget
 import com.proudvocab.android.core.util.TextUtils
 import com.proudvocab.android.ui.LocalDependencies
 import com.proudvocab.android.ui.components.CefrBadge
+import com.proudvocab.android.ui.components.launchChooser
 import com.proudvocab.android.ui.components.EmptyState
 import com.proudvocab.android.ui.components.MessageBanner
 import com.proudvocab.android.ui.components.MessageTone
@@ -197,7 +198,7 @@ fun ArchiveScreen() {
         ) {
             TextButton(onClick = {
                 vm.exportAnki { intent ->
-                    intent?.let { exportLauncher.launch(Intent.createChooser(it, null)) }
+                    intent?.let { launchChooser(exportLauncher, it) }
                 }
             }) {
                 Icon(Icons.Rounded.FileDownload, null, Modifier.size(16.dp))
@@ -206,7 +207,7 @@ fun ArchiveScreen() {
             }
             TextButton(onClick = {
                 vm.exportJson { intent ->
-                    intent?.let { exportLauncher.launch(Intent.createChooser(it, null)) }
+                    intent?.let { launchChooser(exportLauncher, it) }
                 }
             }) {
                 Icon(Icons.Rounded.FileDownload, null, Modifier.size(16.dp))

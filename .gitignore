@@ -3,3 +3,5 @@
 /build.log
 /test.log
 /lint.log
+
+/ci-artifacts/

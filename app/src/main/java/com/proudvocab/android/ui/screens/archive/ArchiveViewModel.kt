@@ -143,18 +143,23 @@ class ArchiveViewModel(application: Application) : AndroidViewModel(application)
         File(dir, name).apply { writeText(content) }
     }.getOrNull()
 
-    private fun shareIntent(file: File, mime: String): Intent {
+    private fun shareIntent(file: File, mime: String): Intent? = runCatching {
         val context = getApplication<Application>()
         val uri: Uri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.files",
             file
         )
-        return Intent(Intent.ACTION_SEND).apply {
+        Intent(Intent.ACTION_SEND).apply {
             type = mime
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+    }.getOrElse {
+        // A share that cannot be built must not crash the screen; the caller
+        // shows the "export failed" hint for a null intent.
+        android.util.Log.w("ProudVocab", "could not build share intent", it)
+        null
     }
 
     // ------------------------------------------------------------- import

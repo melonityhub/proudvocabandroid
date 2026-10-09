@@ -32,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -103,6 +104,8 @@ fun ProudVocabRoot(incomingIntent: Intent?) {
                     Destination.bottomBar.forEach { destination ->
                         val selected = currentRoute == destination.route
                         NavigationBarItem(
+                            // Stable handle for the UI tests; the label is translated.
+                            modifier = Modifier.testTag("tab_${destination.route}"),
                             selected = selected,
                             onClick = {
                                 navController.navigate(destination.route) {

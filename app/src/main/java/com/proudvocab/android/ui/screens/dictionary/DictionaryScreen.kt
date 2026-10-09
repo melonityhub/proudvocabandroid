@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -255,7 +256,13 @@ private fun SearchPane(
         }
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(state.results, key = { "${it.word}_${it.wordId}" }) { result ->
+            // The index is part of the key: two rows can share both the word
+            // text and the redirect target, and LazyColumn crashes on a
+            // duplicate key ("Key was already used").
+            itemsIndexed(
+                state.results,
+                key = { index, result -> "$index|${result.word}|${result.wordId}" }
+            ) { _, result ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

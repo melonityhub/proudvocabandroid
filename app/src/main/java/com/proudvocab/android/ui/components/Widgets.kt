@@ -1,5 +1,6 @@
 package com.proudvocab.android.ui.components
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -666,11 +667,25 @@ fun messageFor(key: String?): String? = when (key) {
     "read_error", "parse_error" -> stringResource(R.string.archive_import_failed)
     "restore_video_failed" -> stringResource(R.string.player_restore_failed)
     "restore_subtitle_failed" -> stringResource(R.string.player_subtitle_restore_failed)
+    "save_fail" -> stringResource(R.string.player_save_fail)
     else -> key
 }
 
 /** Is this key an error rather than a plain confirmation? */
 fun isErrorKey(key: String?): Boolean = key in setOf(
     "font_fail", "dictionary_fail", "read_error", "parse_error",
-    "restore_video_failed", "restore_subtitle_failed"
+    "restore_video_failed", "restore_subtitle_failed", "save_fail"
 )
+
+/**
+ * Opens the system share/export chooser. A device with no handler (or a
+ * vendor ROM that strips the chooser) must produce a no-op, not an
+ * ActivityNotFoundException that closes the app.
+ */
+fun launchChooser(
+    launcher: androidx.activity.result.ActivityResultLauncher<Intent>,
+    intent: Intent
+) {
+    runCatching { launcher.launch(Intent.createChooser(intent, null)) }
+        .onFailure { android.util.Log.w("ProudVocab", "no app can handle the export", it) }
+}

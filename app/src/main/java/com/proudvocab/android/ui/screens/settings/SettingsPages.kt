@@ -56,6 +56,7 @@ import com.proudvocab.android.core.settings.TranslationEngine
 import com.proudvocab.android.core.translate.ModelState
 import com.proudvocab.android.core.util.TextUtils
 import com.proudvocab.android.ui.components.ColorSwatches
+import com.proudvocab.android.ui.components.launchChooser
 import com.proudvocab.android.ui.components.Pill
 import com.proudvocab.android.ui.components.PreferenceRow
 import com.proudvocab.android.ui.components.PrimaryButton
@@ -761,7 +762,7 @@ fun DataPage(vm: SettingsViewModel, settings: AppSettings) {
 
     fun share(intent: Intent?) {
         if (intent != null) {
-            shareLauncher.launch(Intent.createChooser(intent, null))
+            launchChooser(shareLauncher, intent)
         } else {
             android.widget.Toast.makeText(
                 context,

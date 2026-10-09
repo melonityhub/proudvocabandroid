@@ -281,3 +281,97 @@ written for the project owner, is [`BUGFIXES-FA.md`](BUGFIXES-FA.md).
       committed schema file when real migrations arrive.
 - [ ] The manual on-device list above (unchanged — needs hardware).
 
+---
+
+## 12. Fixed in 1.0.3 — the launch crash, found on a real API 31 emulator
+
+The 1.0.2 review (section 11) verified the subtitle parser with **JVM** unit
+tests and code reading, and marked it healthy. The app still crashed at launch
+on the user's Android 12 phone. The cause was only findable at runtime, so the
+review was repeated empirically: a workflow booted an **API 31 x86_64
+emulator**, installed the signed release APK, launched it and drove it with
+`monkey`. The crash reproduced within seconds of reaching the player screen and
+the logcat named the exact defect.
+
+### The crash (verbatim from the emulator logcat)
+
+```
+E AndroidRuntime: FATAL EXCEPTION: main
+E AndroidRuntime: Process: com.proudvocab.android, PID: 3152
+E AndroidRuntime: java.lang.ExceptionInInitializerError
+E AndroidRuntime:     at com.proudvocab.android.ui.screens.player.PlayerViewModel$2$1.emit(PlayerViewModel.kt:207)
+E AndroidRuntime:     at com.proudvocab.android.ui.screens.player.PlayerViewModel.<init>(PlayerViewModel.kt:205)
+E AndroidRuntime:     at com.proudvocab.android.ui.screens.player.PlayerScreenKt.PlayerScreen(PlayerScreen.kt:979)
+E AndroidRuntime:     at com.proudvocab.android.ui.ProudVocabRootKt$ProudVocabRoot$6$1$5$1$1.invoke(ProudVocabRoot.kt:161)
+...
+E AndroidRuntime: Caused by: java.util.regex.PatternSyntaxException: Syntax error in regexp pattern near index 9
+E AndroidRuntime: ^\{(\d+)\}\{(\d+)}(.*)$
+E AndroidRuntime:          ^
+E AndroidRuntime:     at com.android.icu.util.regex.PatternNative.compileImpl(Native Method)
+E AndroidRuntime:     at com.proudvocab.android.core.subtitle.SubtitleParser.<clinit>(SubtitleParser.kt:36)
+```
+
+`SubtitleParser` is a Kotlin `object`, so its regexes compile in a static
+initializer. `MICRODVD` (`^\{(\d+)\}\{(\d+)}(.*)$`) is **invalid on Android**:
+the runtime regex engine is ICU, which rejects this pattern, while the desktop
+`java.util.regex` used by the JVM unit tests accepts it. The first thing the
+player screen does is build `PlayerViewModel`, whose init block immediately
+collects a StateFlow and calls `SubtitleParser.shift(...)` — the first touch of
+the class — so the `PatternSyntaxException` became an
+`ExceptionInInitializerError` on the main thread and the process died. The
+player is the start destination, so **the app crashed at launch** (or right
+after onboarding on a fresh install). This is why every green CI run could
+still ship a build that crashes on real devices: the tests ran on the wrong
+regex engine. `ASS_OVERRIDE` (`\{[^}]*}`) had the same defect and would have
+crashed next.
+
+### Crashes
+
+| Area | Defect | Fix |
+|---|---|---|
+| **Subtitle regexes** | `MICRODVD` (`^\{(\d+)\}\{(\d+)}(.*)$`) and `ASS_OVERRIDE` (`\{[^}]*}`) use brace escapes / bare braces that Android's ICU engine rejects with `PatternSyntaxException`; inside an `object` initializer that surfaces as `ExceptionInInitializerError` → **the app crashed at launch** whenever the player screen was composed. | Both patterns rewritten with character classes — `^[{](\d+)[}][{](\d+)[}](.*)$` and `[{][^}]*[}]` — valid on every engine, semantics unchanged (same capture groups, verified). A comment in the file records why escapes must not be used. |
+
+### Game logic
+
+| Area | Defect | Fix |
+|---|---|---|
+| **Starting a game with too few saved words** | `ReviewViewModel.startGame` set `gameFinished = questions.isEmpty()`, so an empty question pool showed the "Game finished — 0 / 0 / 0" summary instead of the "save at least 4 words" empty state; the empty-state branch in `GameRunner` was unreachable dead code. | `gameFinished` is always `false` when a game starts; an empty pool routes to `GameRunner`, which shows the `games_not_enough_words` empty state. |
+
+### Data
+
+| Area | Defect | Fix |
+|---|---|---|
+| **Erase everything** | Favourites survived the full wipe — the DAO had no `DELETE FROM favourites` at all. | `VocabDao.clearFavourites()` + `VocabRepository.clearFavourites()`, called from `SettingsViewModel.eraseEverything`. |
+| **Erase everything** | The settings reset cleared `dictionaryImported` but left the imported DB file on disk, so the engine kept using the imported dictionary while the UI claimed the starter one was in use; the persisted UI-language mirror also outlived the reset. | `eraseEverything` now also removes the imported dictionary file and clears the `LocaleStore` mirror. |
+
+### Regression guards (new)
+
+- [x] **Instrumented tests** (`app/src/androidTest`): `SubtitleParserDeviceTest`
+      forces every parser entry point (SRT / VTT / ASS / MicroDVD /
+      windows-1256 bytes / shift / lookup / format) to run on a device, and
+      `AppLaunchDeviceTest` launches `MainActivity` and constructs
+      `PlayerViewModel` on the main thread — the exact 1.0.2 crash site. These
+      fail on device-only defects the JVM tests cannot see.
+- [x] **Emulator smoke workflow** (`.github/workflows/emulator-smoke.yml`):
+      boots an API 31 emulator (the reported device class), runs
+      `connectedDebugAndroidTest`, installs the signed release APK, launches it,
+      drives 400 `monkey` events, opens a generated sample MP4 + English SRT +
+      windows-1256 Persian SRT through real VIEW intents (exercising playback,
+      subtitle parsing, encoding detection and the word chips), drives another
+      400 events, and fails the job if the package crashed or died. Runs on
+      pull requests, on pushes to `arena/**`, and manually.
+- [x] JVM unit tests still green; the MicroDVD/ASS patterns keep identical
+      semantics (`SubtitleParserTest` unchanged and passing).
+
+### Verification status
+
+- [x] Crash reproduced on an API 31 emulator **before** the fix (workflow run
+      "Emulator repro (API 31)"; the logcat was committed for diagnosis and has
+      since been removed from the repo — the stack trace above is the excerpt).
+- [ ] `assembleRelease` + `assembleDebugAndroidTest`, `testDebugUnitTest`,
+      `lintDebug` green (Android CI) after the fix.
+- [ ] Emulator smoke test green after the fix: device tests + launch +
+      playback + 800 monkey events, no crash, process alive.
+- [ ] Release 1.0.3 published (4 ABI APKs, signed with the committed release
+      key, installable in place over 1.0.1/1.0.2).
+

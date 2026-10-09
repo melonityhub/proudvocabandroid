@@ -361,8 +361,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun eraseEverything() = launch {
         app.vocabRepository.clearWords()
         app.vocabRepository.clearHistory()
+        // Favourites used to survive "erase everything" — there was no
+        // DAO method to wipe them.
+        app.vocabRepository.clearFavourites()
         app.vocabRepository.clearGameStats()
         app.vocabRepository.clearStudyDays()
+        // The settings reset below clears `dictionaryImported`; without
+        // removing the file the engine would keep using the imported DB
+        // while the UI claims the starter dictionary is in use.
+        dictionary.removeImported()
+        // Reset the persisted UI-language mirror too, otherwise the next
+        // launch would re-apply the language this reset just cleared.
+        localeStore.language = ""
         settings.resetAllStyles()
         settings.update { AppSettings(onboardingCompleted = true) }
     }

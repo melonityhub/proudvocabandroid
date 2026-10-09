@@ -207,6 +207,9 @@ class VocabRepository(private val dao: VocabDao) {
 
     suspend fun clearHistory() = dao.clearHistory()
 
+    /** Wipes the favourites table ("erase everything" used to skip it). */
+    suspend fun clearFavourites() = dao.clearFavourites()
+
     suspend fun replaceAll(words: List<SavedWord>) {
         dao.clearWords()
         words.forEach { dao.insertWord(it) }

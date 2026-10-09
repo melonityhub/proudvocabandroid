@@ -126,3 +126,106 @@
 - دانلود واقعی مدل ML Kit و ترجمه‌ی آفلاین
 - خواندن زیرنویس windows-1256 روی گوشی واقعی
 - آوا (TTS) بازی املا با موتور نصب‌شده‌ی دستگاه
+
+
+---
+
+# نسخه‌ی ۱.۰.۳ — رفع کرشِ «برنامه باز نمی‌شود» (ریشه‌یابی‌شده روی امولاتور Android 12)
+
+> **خلاصه‌ی یک‌خطی** — نسخه‌ی ۱.۰.۲ با این‌که همه‌ی تست‌های CI «سبز» بودند،
+> روی گوشیِ واقعی (Android 12، از جمله Poco X3 Pro) در همان لحظه‌ی ورود کرش
+> می‌کرد. علت: دو الگوی regex در `SubtitleParser` برای موتورِ regexِ اندروید
+> (ICU) نامعتبر بودند؛ چون آن regexها داخل یک `object` ساخته می‌شوند، اولین
+> استفاده از کلاس `SubtitleParser` — که صفحه‌ی پخش‌کننده (صفحه‌ی اول برنامه)
+> بلافاصله پس از باز شدن انجام می‌دهد — باعث `ExceptionInInitializerError` روی
+> thread اصلی و مرگِ کاملِ پروسه می‌شد. تست‌های JVM این را نمی‌دیدند، چون
+> موتورِ regexِ دسکتاپ (`java.util.regex`) آن الگوها را قبول می‌کند. رفع: الگوها
+> با character class بازنویسی شدند، و برای این‌که «سبز بودن CI» این‌بار واقعاً
+> یعنی «روی گوشی هم باز می‌شود»، تست‌های on-device (androidTest) و یک workflow
+> امولاتور API 31 به CI اضافه شد.
+
+## ۱. کرشِ اصلی — logcatِ گرفته‌شده از امولاتور Android 12 (API 31)
+
+کرش اول روی امولاتور بازتولید شد (workflow «Emulator repro (API 31)»)؛ این
+ empeno Thread اصلیِ برنامه بود:
+
+```
+E AndroidRuntime: FATAL EXCEPTION: main
+E AndroidRuntime: Process: com.proudvocab.android, PID: 3152
+E AndroidRuntime: java.lang.ExceptionInInitializerError
+E AndroidRuntime:     at com.proudvocab.android.ui.screens.player.PlayerViewModel$2$1.emit(PlayerViewModel.kt:207)
+E AndroidRuntime:     at com.proudvocab.android.ui.screens.player.PlayerViewModel.<init>(PlayerViewModel.kt:205)
+E AndroidRuntime:     at com.proudvocab.android.ui.screens.player.PlayerScreenKt.PlayerScreen(PlayerScreen.kt:979)
+E AndroidRuntime:     at com.proudvocab.android.ui.ProudVocabRootKt$ProudVocabRoot$6$1$5$1$1.invoke(ProudVocabRoot.kt:161)
+...
+E AndroidRuntime: Caused by: java.util.regex.PatternSyntaxException: Syntax error in regexp pattern near index 9
+E AndroidRuntime: ^\{(\d+)\}\{(\d+)}(.*)$
+E AndroidRuntime:          ^
+E AndroidRuntime:     at com.android.icu.util.regex.PatternNative.compileImpl(Native Method)
+E AndroidRuntime:     at com.proudvocab.android.core.subtitle.SubtitleParser.<clinit>(SubtitleParser.kt:36)
+```
+
+### زنجیره‌ی کرش، خط‌به‌خط
+
+1. برنامه باز می‌شود → صفحه‌ی اول = **پخش‌کننده (Watch)**.
+2. `PlayerScreen` ساخته می‌شود و `PlayerViewModel` را می‌سازد.
+3. داخل `PlayerViewModel.<init>` یک `viewModelScope.launch` اجرا می‌شود که
+   StateFlowِ UI را می‌خواند و در همان ابتدا `SubtitleParser.shift(...)` را
+   صدا می‌زند — **اولین لمسِ کلاس `SubtitleParser`**.
+4. `SubtitleParser` یک `object` است؛ پس regexهایش در `<clinit>` (initializer
+   استاتیک) ساخته می‌شوند. الگوی `MICRODVD`
+   (`^\{(\d+)\}\{(\d+)}(.*)$`) برای موتورِ **ICU**ِ اندروید نامعتبر است
+   و `PatternSyntaxException` می‌دهد.
+5. استثنا در initializerِ استاتیک → `ExceptionInInitializerError` روی thread
+   اصلی → **مرگِ کاملِ پروسه**. از آن‌جا که صفحه‌ی پخش‌کننده صفحه‌ی اول است،
+   یعنی **برنامه «باز نمی‌شود» و بلافاصله می‌بندد**.
+
+### چرا تست‌های قبلی (CI) آن را ندیدند؟
+
+تستِ `SubtitleParserTest` — از جمله تستِ MicroDVD — روی **JVM** اجرا می‌شود و
+JVM از `java.util.regex` دسکتاپ استفاده می‌کند که این الگو را **قبول می‌کند**.
+موتورِ واقعیِ اندروید **ICU** است که سخت‌گیرتر است. یعنی «همه‌چیز سبز» در CI
+برابر بود با «قبول شدن روی دسکتاپ»، نه «قبول شدن روی گوشی». به همین دلیل، در
+این نسخه:
+
+- تست‌های **on-device** (`app/src/androidTest`) اضافه شد که همان مسیرها را
+  **روی خودِ دستگاه/امولاتور** اجرا می‌کنند: `SubtitleParserDeviceTest` همه‌ی
+  ورودی‌های parser را روی دستگاه می‌آزماید (SRT / VTT / ASS / MicroDVD /
+  بایت‌های windows-1256 / shift / lookup / format)، و `AppLaunchDeviceTest` هم
+  `MainActivity` را launch می‌کند و هم `PlayerViewModel` را دقیقاً همان‌جا که
+  ۱.۰.۲ می‌بست، می‌سازد.
+- workflowِ **«Emulator smoke test (API 31)»** به CI اضافه شد: امولاتور
+  Android 12 (همان کلاسِ دستگاهِ گزارش‌شده) بوت می‌شود، تست‌های on-device
+  اجرا می‌شوند، APK ریلیزِ امضاشده نصب و launch می‌شود، ۴۰۰ رویدادِ `monkey`
+  فرستاده می‌شود، سپس یک ویدیوی نمونه + زیرنویس انگلیسی + زیرنویس فارسیِ
+  windows-1256 از طریق VIEW intentِ واقعی باز می‌شوند (یعنی پخش، parse کردنِ
+  زیرنویس، تشخیصِ کدگذاری و چیپس‌های واژه همه exercise می‌شوند)، ۴۰۰ رویدادِ
+  دیگر فرستاده می‌شود، و اگر برنامه کرش کرده باشد یا پروسه‌اش مرده باشد،
+  CI **قرمز** می‌شود. این workflow روی Pull Request، push به `arena/**` و
+  اجرای دستی runs می‌شود.
+
+### رفع
+
+| بخش | باگ | رفع |
+|---|---|---|
+| **regexهای زیرنویس** | `MICRODVD` (`^\{(\d+)\}\{(\d+)}(.*)$`) و `ASS_OVERRIDE` (`\{[^}]*}`) با escape و braceهایِciale برای ICU نامعتبر بودند → `ExceptionInInitializerError` در اولین لمسِ `SubtitleParser` → **کرش در لحظه‌ی ورود**. | هر دو الگو با character class بازنویسی شدند: `^[{](\d+)[}][{](\d+)[}](.*)$` و `[{][^}]*[}]` — روی همه‌ی موتورها معتبرند و معنای الگو دقیقاً همان قبلی است (گروه‌های capture یکسان). یک کامنت هم در خودِ فایل نوشته شده که چرا نباید از escape استفاده کرد. |
+
+## ۲. باگ‌های دیگرِ پیدا‌شده در این دور
+
+| بخش | باگ | رفع |
+|---|---|---|
+| **شروع بازی با واژه‌ی کم** | `ReviewViewModel.startGame` مقدار `gameFinished = questions.isEmpty()` می‌گذاشت؛ یعنی با دسته‌ی خالی، به‌جای empty-stateِ «حداقل ۴ واژه ذخیره کن»، صفحه‌ی «بازی تمام شد — ۰/۰/۰» نشان داده می‌شد (آن empty-state در `GameRunner` عملاً کدِ مرده بود). | `gameFinished` همیشه `false` است وقتی بازی شروع می‌شود؛ با دسته‌ی خالی، `GameRunner` empty-stateِ «حداقل ۴ واژه» را نشان می‌دهد. |
+| **«پاک‌کردنِ همه‌چیز»** | واژه‌های **علاقه‌مندی** پاک نمی‌شدند — در DAO اصلاً `DELETE FROM favourites` وجود نداشت. | `VocabDao.clearFavourites()` + `VocabRepository.clearFavourites()` اضافه شد و از `eraseEverything` صدا زده می‌شود. |
+| **«پاک‌کردنِ همه‌چیز»** | ریستِ تنظیمات `dictionaryImported` را صفر می‌کرد ولی فایلِ دیکشنریِ واردشده روی دیسک می‌ماند؛ پس موتورِ دیکشنری همچنان از دیکشنریِ واردشده استفاده می‌کرد در حالی که UI می‌گفت «دیکشنری starter» در حال استفاده است. همچنین نسخه‌ی ذخیره‌شده‌ی زبانِ UI هم بعد از ریست می‌ماند. | `eraseEverything` حالا فایلِ دیکشنریِ واردشده را هم حذف می‌کند و `LocaleStore` را هم ریست می‌کند. |
+
+## ۳. چک‌لیستِ نهاییِ ۱.۰.۳
+
+- [x] کرش روی امولاتور API 31 **قبل از رفع** بازتولید شد (run «Emulator repro
+      (API 31)») و logcatِ کاملِ آن تحلیل شد.
+- [ ] تست‌های JVM (`testDebugUnitTest`) سبز — semanticsِ الگوها تغییر نکرده.
+- [ ] `lintDebug` + `assembleRelease` + `assembleDebugAndroidTest` سبز.
+- [ ] تست‌های on-device (`connectedDebugAndroidTest`) روی امولاتور API 31 سبز.
+- [ ] Emulator smoke test سبز: launch + پخش + زیرنویس (EN + FA/windows-1256)
+      + ۸۰۰ رویدادِ monkey، بدون کرش، پروسه زنده.
+- [ ] انتشار نسخه‌ی **۱.۰.۳** (versionCode 4) روی GitHub — ۴ APK با امضای
+      کلیدیِ پایدار، قابل نصبِ روی ۱.۰.۱/۱.۰.۲.

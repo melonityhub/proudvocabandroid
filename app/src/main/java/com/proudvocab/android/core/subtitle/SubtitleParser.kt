@@ -33,9 +33,18 @@ object SubtitleParser {
     private val SRT_TIME_SHORT = Regex("(\\d{1,2}):(\\d{1,2})[,.](\\d{1,3})")
     private val SRT_ARROW = Regex("\\s*-->\\s*")
     private val ASS_TIME = Regex("(\\d+):(\\d{2}):(\\d{2})[.,](\\d{1,3})")
-    private val MICRODVD = Regex("^\\{(\\d+)}\\{(\\d+)}(.*)$")
+    // Literal braces are matched with character classes ([{] / [}]), never
+    // with backslash escapes or bare braces: desktop java.util.regex (the
+    // JVM unit tests) tolerates them, but Android's ICU-backed regex engine
+    // rejects this exact pattern with PatternSyntaxException. Because these
+    // properties live in an `object`, the failure surfaced as
+    // ExceptionInInitializerError the first time anything touched
+    // SubtitleParser — which crashed the app at launch (the player screen
+    // builds PlayerViewModel eagerly). See BUGFIXES-FA.md §1.0.3 and
+    // SubtitleParserDeviceTest.
+    private val MICRODVD = Regex("^[{](\\d+)[}][{](\\d+)[}](.*)$")
     private val TAG = Regex("<[^>]*>")
-    private val ASS_OVERRIDE = Regex("\\{[^}]*}")
+    private val ASS_OVERRIDE = Regex("[{][^}]*[}]")
 
     fun parse(raw: ByteArray): List<SubtitleCue> {
         val text = decode(raw)

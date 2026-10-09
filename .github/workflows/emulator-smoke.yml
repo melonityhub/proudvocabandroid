@@ -49,10 +49,30 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # The arm64 runner ships without an Android SDK; set one up explicitly
-      # so AGP can resolve compileSdk and build-tools.
+      # The arm64 runner has no Android SDK preinstalled. Reuse the runner's SDK
+      # when it exists; otherwise install the command-line tools, the licenses
+      # and the platform/build-tools that AGP needs (compileSdk 35).
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          set -euo pipefail
+          if [ -n "${ANDROID_HOME:-}" ] && [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            echo "Using the runner's SDK at $ANDROID_HOME"
+            exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSL -o "$RUNNER_TEMP/cmdline-tools.zip" \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline-tools.zip" -d "$SDK/cmdline-tools"
+          rm -rf "$SDK/cmdline-tools/latest"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          SM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          set +o pipefail
+          yes | "$SM" --sdk_root="$SDK" --licenses > /dev/null
+          set -o pipefail
+          "$SM" --sdk_root="$SDK" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
 
       - uses: gradle/actions/setup-gradle@v4
 

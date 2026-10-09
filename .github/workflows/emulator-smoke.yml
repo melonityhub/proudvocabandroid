@@ -49,6 +49,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # The arm64 runner ships without an Android SDK; set one up explicitly
+      # so AGP can resolve compileSdk and build-tools.
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Enable KVM group permissions
@@ -79,7 +84,7 @@ jobs:
             [ -f "$f" ] || continue
             echo "== $f ($(wc -l < "$f") lines)"
             {
-              grep -n -A12 -E "What went wrong|Caused by|Exception is" "$f" | head -90
+              grep -n -E "^e: |^w: .*androidTest|What went wrong|Caused by" -A3 "$f" | head -120
               echo "----- tail -----"
               tail -n 120 "$f"
             } | while IFS= read -r line; do

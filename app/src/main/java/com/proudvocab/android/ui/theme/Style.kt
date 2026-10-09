@@ -58,8 +58,8 @@ fun rememberTargetStyle(
         val fontStyle = if (pref.italic) FontStyle.Italic else FontStyle.Normal
         val family = fonts.resolve(pref.font, weight, fontStyle)
         val size = (target.baseSizeSp * pref.scale).sp
-        val color = pref.color?.let { ColorCodec.parseULong(it) }?.let { Color(it) } ?: fallbackColor
-        val background = pref.background?.let { ColorCodec.parseULong(it) }?.let { Color(it) }
+        val color = ColorCodec.parseColor(pref.color) ?: fallbackColor
+        val background = ColorCodec.parseColor(pref.background)
         val shadow = if (pref.shadowDp > 0f) {
             Shadow(color = Color.Black.copy(alpha = 0.75f), blurRadius = pref.shadowDp)
         } else null

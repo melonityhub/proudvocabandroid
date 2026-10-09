@@ -85,6 +85,9 @@ interface VocabDao {
     @Query("DELETE FROM favourites WHERE word = :word AND language = :lang")
     suspend fun deleteFavourite(word: String, lang: String)
 
+    @Query("DELETE FROM favourites")
+    suspend fun clearFavourites()
+
     // ------------------------------------------------------------- games
     @Query("SELECT * FROM game_stats")
     fun observeGameStats(): Flow<List<GameStat>>

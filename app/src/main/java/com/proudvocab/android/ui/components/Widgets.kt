@@ -386,8 +386,8 @@ private fun Swatch(
                 .clip(CircleShape)
                 .border(2.5.dp, borderColor, CircleShape)
                 .background(
-                    if (parsed != null) Color(parsed)
-                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    ColorCodec.parseColor(color)
+                        ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 )
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center

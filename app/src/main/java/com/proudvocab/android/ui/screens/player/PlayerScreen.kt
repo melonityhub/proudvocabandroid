@@ -416,9 +416,9 @@ private fun SubtitleOverlay(
     val secondary = rememberTargetStyle(StyleTarget.SUBTITLE_SECONDARY, settings, deps.fonts)
     val cue = state.activeCue
     val background = remember(settings.subtitleBackground, settings.subtitleBackgroundOpacity) {
-        val parsed = com.proudvocab.android.core.util.ColorCodec.parseULong(settings.subtitleBackground)
+        val parsed = com.proudvocab.android.core.util.ColorCodec.parseColor(settings.subtitleBackground)
         if (parsed != null) {
-            Color(parsed).copy(alpha = settings.subtitleBackgroundOpacity.coerceIn(0f, 1f))
+            parsed.copy(alpha = settings.subtitleBackgroundOpacity.coerceIn(0f, 1f))
         } else Color.Black.copy(alpha = settings.subtitleBackgroundOpacity.coerceIn(0f, 1f))
     }
 

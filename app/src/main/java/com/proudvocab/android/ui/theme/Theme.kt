@@ -127,8 +127,8 @@ fun ProudVocabTheme(
             else -> LightColors
         }
         val accent = settings.accentHex?.let { ColorCodec.parseULong(it) }
-        if (accent != null && !supportsDynamic) {
-            val accentColor = Color(accent)
+        val accentColor = ColorCodec.parseColor(settings.accentHex)
+        if (accent != null && accentColor != null && !supportsDynamic) {
             base.copy(
                 primary = accentColor,
                 onPrimary = if (ColorCodec.isDark(accent)) Color.White else Color.Black
@@ -143,8 +143,8 @@ fun ProudVocabTheme(
     val appFamily = remember(appText.font, appWeight, appStyle, fonts) {
         fonts.resolve(appText.font, appWeight, appStyle)
     }
-    val appColor = appText.color?.let { ColorCodec.parseULong(it) }?.let { Color(it) }
-    val appBackground = appText.background?.let { ColorCodec.parseULong(it) }?.let { Color(it) }
+    val appColor = ColorCodec.parseColor(appText.color)
+    val appBackground = ColorCodec.parseColor(appText.background)
     val typography = remember(appText, appFamily, appColor, appBackground) {
         AppTypography.withAppStyle(appText, appFamily, appColor, appBackground)
     }

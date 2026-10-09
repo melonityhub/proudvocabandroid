@@ -126,3 +126,156 @@
 - دانلود واقعی مدل ML Kit و ترجمه‌ی آفلاین
 - خواندن زیرنویس windows-1256 روی گوشی واقعی
 - آوا (TTS) بازی املا با موتور نصب‌شده‌ی دستگاه
+
+
+---
+
+# نسخه‌ی ۱.۰.۳ — رفع کرشِ «برنامه باز نمی‌شود» (ریشه‌یابی‌شده روی امولاتور Android 12)
+
+> **خلاصه‌ی یک‌خطی** — نسخه‌ی ۱.۰.۲ با این‌که همه‌ی تست‌های CI «سبز» بودند،
+> روی گوشیِ واقعی (Android 12، از جمله Poco X3 Pro) در همان لحظه‌ی ورود کرش
+> می‌کرد. علت: دو الگوی regex در `SubtitleParser` برای موتورِ regexِ اندروید
+> (ICU) نامعتبر بودند؛ چون آن regexها داخل یک `object` ساخته می‌شوند، اولین
+> استفاده از کلاس `SubtitleParser` — که صفحه‌ی پخش‌کننده (صفحه‌ی اول برنامه)
+> بلافاصله پس از باز شدن انجام می‌دهد — باعث `ExceptionInInitializerError` روی
+> thread اصلی و مرگِ کاملِ پروسه می‌شد. تست‌های JVM این را نمی‌دیدند، چون
+> موتورِ regexِ دسکتاپ (`java.util.regex`) آن الگوها را قبول می‌کند. رفع: الگوها
+> با character class بازنویسی شدند، و برای این‌که «سبز بودن CI» این‌بار واقعاً
+> یعنی «روی گوشی هم باز می‌شود»، تست‌های on-device (androidTest) و یک workflow
+> امولاتور API 31 به CI اضافه شد.
+
+## ۱. کرشِ اصلی — logcatِ گرفته‌شده از امولاتور Android 12 (API 31)
+
+کرش اول روی امولاتور بازتولید شد (workflow «Emulator repro (API 31)»)؛
+logcatِ Thread اصلیِ برنامه این بود:
+
+```
+E AndroidRuntime: FATAL EXCEPTION: main
+E AndroidRuntime: Process: com.proudvocab.android, PID: 3152
+E AndroidRuntime: java.lang.ExceptionInInitializerError
+E AndroidRuntime:     at com.proudvocab.android.ui.screens.player.PlayerViewModel$2$1.emit(PlayerViewModel.kt:207)
+E AndroidRuntime:     at com.proudvocab.android.ui.screens.player.PlayerViewModel.<init>(PlayerViewModel.kt:205)
+E AndroidRuntime:     at com.proudvocab.android.ui.screens.player.PlayerScreenKt.PlayerScreen(PlayerScreen.kt:979)
+E AndroidRuntime:     at com.proudvocab.android.ui.ProudVocabRootKt$ProudVocabRoot$6$1$5$1$1.invoke(ProudVocabRoot.kt:161)
+...
+E AndroidRuntime: Caused by: java.util.regex.PatternSyntaxException: Syntax error in regexp pattern near index 9
+E AndroidRuntime: ^\{(\d+)\}\{(\d+)}(.*)$
+E AndroidRuntime:          ^
+E AndroidRuntime:     at com.android.icu.util.regex.PatternNative.compileImpl(Native Method)
+E AndroidRuntime:     at com.proudvocab.android.core.subtitle.SubtitleParser.<clinit>(SubtitleParser.kt:36)
+```
+
+### زنجیره‌ی کرش، خط‌به‌خط
+
+1. برنامه باز می‌شود → صفحه‌ی اول = **پخش‌کننده (Watch)**.
+2. `PlayerScreen` ساخته می‌شود و `PlayerViewModel` را می‌سازد.
+3. داخل `PlayerViewModel.<init>` یک `viewModelScope.launch` اجرا می‌شود که
+   StateFlowِ UI را می‌خواند و در همان ابتدا `SubtitleParser.shift(...)` را
+   صدا می‌زند — **اولین لمسِ کلاس `SubtitleParser`**.
+4. `SubtitleParser` یک `object` است؛ پس regexهایش در `<clinit>` (initializer
+   استاتیک) ساخته می‌شوند. الگوی `MICRODVD`
+   (`^\{(\d+)\}\{(\d+)}(.*)$`) برای موتورِ **ICU**ِ اندروید نامعتبر است
+   و `PatternSyntaxException` می‌دهد.
+5. استثنا در initializerِ استاتیک → `ExceptionInInitializerError` روی thread
+   اصلی → **مرگِ کاملِ پروسه**. از آن‌جا که صفحه‌ی پخش‌کننده صفحه‌ی اول است،
+   یعنی **برنامه «باز نمی‌شود» و بلافاصله می‌بندد**.
+
+### چرا تست‌های قبلی (CI) آن را ندیدند؟
+
+تستِ `SubtitleParserTest` — از جمله تستِ MicroDVD — روی **JVM** اجرا می‌شود و
+JVM از `java.util.regex` دسکتاپ استفاده می‌کند که این الگو را **قبول می‌کند**.
+موتورِ واقعیِ اندروید **ICU** است که سخت‌گیرتر است. یعنی «همه‌چیز سبز» در CI
+برابر بود با «قبول شدن روی دسکتاپ»، نه «قبول شدن روی گوشی». به همین دلیل، در
+این نسخه:
+
+- تست‌های **on-device** (`app/src/androidTest`) اضافه شد که همان مسیرها را
+  **روی خودِ دستگاه/امولاتور** اجرا می‌کنند: `SubtitleParserDeviceTest` همه‌ی
+  ورودی‌های parser را روی دستگاه می‌آزماید (SRT / VTT / ASS / MicroDVD /
+  بایت‌های windows-1256 / shift / lookup / format)، و `AppLaunchDeviceTest` هم
+  `MainActivity` را launch می‌کند و هم `PlayerViewModel` را دقیقاً همان‌جا که
+  ۱.۰.۲ می‌بست، می‌سازد.
+- workflowِ **«Emulator smoke test (API 31)»** به CI اضافه شد: امولاتور
+  Android 12 (همان کلاسِ دستگاهِ گزارش‌شده) بوت می‌شود، تست‌های on-device
+  اجرا می‌شوند، APK ریلیزِ امضاشده نصب و launch می‌شود، ۴۰۰ رویدادِ `monkey`
+  فرستاده می‌شود، سپس یک ویدیوی نمونه + زیرنویس انگلیسی + زیرنویس فارسیِ
+  windows-1256 از طریق VIEW intentِ واقعی باز می‌شوند (یعنی پخش، parse کردنِ
+  زیرنویس، تشخیصِ کدگذاری و چیپس‌های واژه همه exercise می‌شوند)، ۴۰۰ رویدادِ
+  دیگر فرستاده می‌شود، و اگر برنامه کرش کرده باشد یا پروسه‌اش مرده باشد،
+  CI **قرمز** می‌شود. این workflow روی Pull Request، push به `arena/**` و
+  اجرای دستی runs می‌شود.
+
+### رفع
+
+| بخش | باگ | رفع |
+|---|---|---|
+| **regexهای زیرنویس** | `MICRODVD` (`^\{(\d+)\}\{(\d+)}(.*)$`) و `ASS_OVERRIDE` (`\{[^}]*}`) با escape و آکولادهایی که موتور ICU قبول نمی‌کند، نامعتبر بودند → `ExceptionInInitializerError` در اولین لمسِ `SubtitleParser` → **کرش در لحظه‌ی ورود**. | هر دو الگو با character class بازنویسی شدند: `^[{](\d+)[}][{](\d+)[}](.*)$` و `[{][^}]*[}]` — روی همه‌ی موتورها معتبرند و معنای الگو دقیقاً همان قبلی است (گروه‌های capture یکسان). یک کامنت هم در خودِ فایل نوشته شده که چرا نباید از escape استفاده کرد. |
+
+## ۲. کرشِ دوم — رنگِ نادرستِ Compose (AIOOBE: length=18; index=63)
+
+بعد از رفع کرشِ اول، تستِ امولاتور دوباره اجرا شد؛ این‌بار «monkey» چند صفحه را
+گشت و برنامه در ساعت ۰۲:۴۲:۴۱ کرش کرد. logcat:
+
+```
+E AndroidRuntime: FATAL EXCEPTION: main
+E AndroidRuntime: Process: com.proudvocab.android, PID: 2915
+E AndroidRuntime: java.lang.ArrayIndexOutOfBoundsException: length=18; index=63
+E AndroidRuntime:     at androidx.compose.ui.graphics.Color.getColorSpace-impl(Color.kt:724)
+E AndroidRuntime:     at androidx.compose.ui.graphics.Color.convert-vNxB06k(Color.kt:142)
+E AndroidRuntime:     at androidx.compose.ui.graphics.ColorKt.toArgb-8_81llA(Color.kt:689)
+E AndroidRuntime:     at androidx.compose.ui.text.platform.AndroidTextPaint.setColor-8_81llA(AndroidTextPaint.android.kt:106)
+E AndroidRuntime:     at androidx.compose.ui.text.platform.extensions.TextPaintExtensions_androidKt.applySpanStyle(TextPaintExtensions.android.kt:97)
+E AndroidRuntime:     at androidx.compose.ui.text.platform.AndroidParagraphIntrinsics.<init>(AndroidParagraphIntrinsics.android.kt:108)
+...
+E AndroidRuntime:     at androidx.compose.foundation.lazy.layout.PrefetchHandleProvider...performMeasure
+```
+
+### علت، دقیق
+
+از Compose 1.7 به بعد، مقدارِ packedِ Color این‌گونه چیده شده است: ۶ بیتِ پایینی
+(بیت‌های ۰ تا ۵) شناسه‌ی فضای رنگ هستند (۱۸ مقدارِ معتبر: ۰ تا ۱۷) و بیت‌های ۳۲ تا
+۶۳ مؤلفه‌های ARGB را نگه می‌دارند. یعنی سازنده‌ی Color(Int) عملیات «argb shl 32» را
+انجام می‌دهد.
+
+برنامه‌ی ما رنگ‌ها را با ColorCodec.parseULong می‌گرفت (یک ULongِ خامِ ARGB؛ مثلاً
+#FFFFFFFF → 0xFFFFFFFF) و با سازنده‌ی خامِ value class — یعنی Color(thatULong) —
+می‌ساخت. در این حالت ۶ بیتِ پایینیِ مقدار، «شناسه‌ی فضای رنگ» می‌شود: برای
+#FFFFFFFF → ۶۳! و اولین تبدیلِ رنگ (مثلاً toArgb هنگامِ measure کردنِ یک Text) با
+ColorSpacesArray[63] به AIOOBE: length=18; index=63 می‌انجامد و برنامه می‌میرد.
+
+نکته‌ی جالب: رنگ‌های ثابتِ Color(0xFF22C55E) (لیترال‌های Int) هیچ مشکلی نداشتند
+چون به سازنده‌ی Color(Int) می‌رسیدند که shl 32 می‌کند — به همین خاطر برنامه تا
+رسیدن به صفحه‌ی ترنسکریپت/زیرنویس زنده می‌ماند.
+
+### رفع
+
+| بخش | باگ | رفع |
+|---|---|---|
+| **ساخت رنگِ packed** | هر رنگِ گرفته‌شده از تنظیمات (رنگِ اول/دومِ زیرنویس، پس‌زمینه‌ی زیرنویس، رنگِ accent، رنگِ متنِ برنامه، دکمه‌های رنگی) با سازنده‌ی خامِ Color(ULong) ساخته می‌شد؛ در نتیجه شناسه‌ی فضای رنگ برابرِ «argb and 0x3F» می‌شد (برای #FFFFFFFF → ۶۳) که بزرگ‌تر از ۱۸ است → کرش با AIOOBE: length=18; index=63 در اولین toArgb(). | ColorCodec.parseColor() اضافه شد (از سازنده‌ی Color(Int) می‌گذرد که shl 32 می‌کند)؛ هر ۷ سایتِ استفاده (Style.kt ×۲، Theme.kt ×۳، Widgets.kt، PlayerScreen.kt) حالا از آن استفاده می‌کنند. تستِ ColorCodecTest چک می‌کند که toArgb() برای رنگ‌های پیش‌فرضِ برنامه هرگز throw نمی‌کند — تست‌های JVM همان کدِ ui-graphics را اجرا می‌کنند، پس این باگ حالا بدون نیاز به دستگاه هم گرفته می‌شود. |
+
+## ۳. باگ‌های دیگرِ پیدا‌شده در این دور
+
+| بخش | باگ | رفع |
+|---|---|---|
+| **شروع بازی با واژه‌ی کم** | `ReviewViewModel.startGame` مقدار `gameFinished = questions.isEmpty()` می‌گذاشت؛ یعنی با دسته‌ی خالی، به‌جای empty-stateِ «حداقل ۴ واژه ذخیره کن»، صفحه‌ی «بازی تمام شد — ۰/۰/۰» نشان داده می‌شد (آن empty-state در `GameRunner` عملاً کدِ مرده بود). | `gameFinished` همیشه `false` است وقتی بازی شروع می‌شود؛ با دسته‌ی خالی، `GameRunner` empty-stateِ «حداقل ۴ واژه» را نشان می‌دهد. |
+| **«پاک‌کردنِ همه‌چیز»** | واژه‌های **علاقه‌مندی** پاک نمی‌شدند — در DAO اصلاً `DELETE FROM favourites` وجود نداشت. | `VocabDao.clearFavourites()` + `VocabRepository.clearFavourites()` اضافه شد و از `eraseEverything` صدا زده می‌شود. |
+| **«پاک‌کردنِ همه‌چیز»** | ریستِ تنظیمات `dictionaryImported` را صفر می‌کرد ولی فایلِ دیکشنریِ واردشده روی دیسک می‌ماند؛ پس موتورِ دیکشنری همچنان از دیکشنریِ واردشده استفاده می‌کرد در حالی که UI می‌گفت «دیکشنری starter» در حال استفاده است. همچنین نسخه‌ی ذخیره‌شده‌ی زبانِ UI هم بعد از ریست می‌ماند. | `eraseEverything` حالا فایلِ دیکشنریِ واردشده را هم حذف می‌کند و `LocaleStore` را هم ریست می‌کند. |
+
+## ۴. چک‌لیستِ نهاییِ ۱.۰.۳
+
+- [x] کرشِ اول (regexِ زیرنویس) روی امولاتور API 31 **قبل از رفع** بازتولید شد
+      (run «Emulator repro (API 31)») و logcatِ کاملِ آن تحلیل شد.
+- [x] تست‌های on-device (`connectedDebugAndroidTest`) سبز — ۸/۸ تست، از جمله
+      `playerViewModelInitializesOnDevice` (دقیقاً همان‌جا که ۱.۰.۲ می‌بست) و
+      تستِ windows-1256.
+- [x] کرشِ دوم (رنگِ packedِ Compose) با همین تستِ امولاتور پیدا شد — یعنی
+      «monkey» صفحه‌ی ترنسکریپت را باز کرد و برنامه هنگامِ measure کردنِ یک
+      خطِ زیرنویس/styleشده مرد.
+- [x] تست‌های JVM (`testDebugUnitTest`) سبز — از جمله `ColorCodecTest` جدید
+      (toArgb() برای رنگ‌های پیش‌فرضِ برنامه هرگز throw نمی‌کند) و
+      `SubtitleParserTest` (معنای الگوها تغییر نکرده).
+- [x] `lintDebug` + `assembleRelease` + `assembleDebugAndroidTest` سبز.
+- [x] Emulator smoke test سبز: launch + پخش + زیرنویس (EN + FA/windows-1256)
+      + ۸۰۰ رویدادِ monkey، بدون کرش، پروسه زنده.
+- [x] انتشار نسخه‌ی **۱.۰.۳** (versionCode 4) روی GitHub — ۴ APK با امضای
+      کلیدیِ پایدار، قابل نصبِ روی ۱.۰.۱/۱.۰.۲. انتشار با push کردنِ تگ
+      `v1.0.3` انجام می‌شود که workflowِ release.yml (idempotent) را اجرا می‌کند.

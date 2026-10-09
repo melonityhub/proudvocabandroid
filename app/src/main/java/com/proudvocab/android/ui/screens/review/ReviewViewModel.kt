@@ -227,7 +227,11 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
                 gameScore = 0,
                 gameCorrect = 0,
                 gameWrong = 0,
-                gameFinished = questions.isEmpty(),
+                // An empty question list is NOT a finished game: GameRunner
+                // shows the "save at least 4 words" empty state for it.
+                // Marking it finished here routed players to the 0/0 summary
+                // screen instead of that hint.
+                gameFinished = false,
                 lastAnswerCorrect = null
             )
         }

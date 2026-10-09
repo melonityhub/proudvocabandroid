@@ -146,8 +146,8 @@
 
 ## ۱. کرشِ اصلی — logcatِ گرفته‌شده از امولاتور Android 12 (API 31)
 
-کرش اول روی امولاتور بازتولید شد (workflow «Emulator repro (API 31)»)؛ این
- empeno Thread اصلیِ برنامه بود:
+کرش اول روی امولاتور بازتولید شد (workflow «Emulator repro (API 31)»)؛
+logcatِ Thread اصلیِ برنامه این بود:
 
 ```
 E AndroidRuntime: FATAL EXCEPTION: main
@@ -208,7 +208,7 @@ JVM از `java.util.regex` دسکتاپ استفاده می‌کند که این
 
 | بخش | باگ | رفع |
 |---|---|---|
-| **regexهای زیرنویس** | `MICRODVD` (`^\{(\d+)\}\{(\d+)}(.*)$`) و `ASS_OVERRIDE` (`\{[^}]*}`) با escape و braceهایِciale برای ICU نامعتبر بودند → `ExceptionInInitializerError` در اولین لمسِ `SubtitleParser` → **کرش در لحظه‌ی ورود**. | هر دو الگو با character class بازنویسی شدند: `^[{](\d+)[}][{](\d+)[}](.*)$` و `[{][^}]*[}]` — روی همه‌ی موتورها معتبرند و معنای الگو دقیقاً همان قبلی است (گروه‌های capture یکسان). یک کامنت هم در خودِ فایل نوشته شده که چرا نباید از escape استفاده کرد. |
+| **regexهای زیرنویس** | `MICRODVD` (`^\{(\d+)\}\{(\d+)}(.*)$`) و `ASS_OVERRIDE` (`\{[^}]*}`) با escape و آکولادهایی که موتور ICU قبول نمی‌کند، نامعتبر بودند → `ExceptionInInitializerError` در اولین لمسِ `SubtitleParser` → **کرش در لحظه‌ی ورود**. | هر دو الگو با character class بازنویسی شدند: `^[{](\d+)[}][{](\d+)[}](.*)$` و `[{][^}]*[}]` — روی همه‌ی موتورها معتبرند و معنای الگو دقیقاً همان قبلی است (گروه‌های capture یکسان). یک کامنت هم در خودِ فایل نوشته شده که چرا نباید از escape استفاده کرد. |
 
 ## ۲. باگ‌های دیگرِ پیدا‌شده در این دور
 
@@ -222,7 +222,7 @@ JVM از `java.util.regex` دسکتاپ استفاده می‌کند که این
 
 - [x] کرش روی امولاتور API 31 **قبل از رفع** بازتولید شد (run «Emulator repro
       (API 31)») و logcatِ کاملِ آن تحلیل شد.
-- [ ] تست‌های JVM (`testDebugUnitTest`) سبز — semanticsِ الگوها تغییر نکرده.
+- [ ] تست‌های JVM (`testDebugUnitTest`) سبز — معنای الگوها تغییر نکرده.
 - [ ] `lintDebug` + `assembleRelease` + `assembleDebugAndroidTest` سبز.
 - [ ] تست‌های on-device (`connectedDebugAndroidTest`) روی امولاتور API 31 سبز.
 - [ ] Emulator smoke test سبز: launch + پخش + زیرنویس (EN + FA/windows-1256)

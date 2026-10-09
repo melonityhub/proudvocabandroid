@@ -236,6 +236,15 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.core)
+
+    // On-device tests (run by the emulator-smoke workflow). The JVM unit
+    // tests cannot catch device-only failures such as regex patterns that
+    // Android's ICU engine rejects but desktop java.util.regex accepts —
+    // that gap is exactly how 1.0.2 shipped a launch crash.
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.monitor)
+    androidTestImplementation(libs.androidx.test.runner)
 }
 
 // Full assertion messages in the CI log — a bare "FAILED" is not enough to

@@ -41,7 +41,7 @@ class AppLaunchDeviceTest {
         // (which uses Dispatchers.Main.immediate) propagates to this test
         // instead of escaping into the void.
         val app = ApplicationProvider.getApplicationContext<Application>()
-        ApplicationProvider.getInstrumentation().runOnMainSync {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
             PlayerViewModel(app)
         }
     }

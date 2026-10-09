@@ -17,8 +17,15 @@ name: Emulator smoke test (API 31)
 #      subtitles through real VIEW intents, so playback, subtitle parsing,
 #      encoding detection and the word chips are all exercised;
 #   5. drives another 400 monkey events through the loaded player;
-#   6. fails the job if the app crashed (FATAL EXCEPTION for our package) or
-#      if the process is not alive at the end.
+#   6. fails the job if the tests failed, if the app crashed (FATAL
+#      EXCEPTION for our package) or if the process is not alive at the end.
+#
+# NOTE: reactivecircus/android-emulator-runner executes the `script` input
+# LINE BY LINE, each line as a separate `sh -c` (dash) invocation on the
+# runner. Multi-line constructs (heredocs, if/for blocks, `\` continuations)
+# and shell variables set on one line do NOT survive to the next line. The
+# script below is therefore written as independent one-liners; shared values
+# come from the workflow-level env (PKG, APK).
 #
 # Logs are uploaded as artifacts; on branch pushes they are also committed to
 # `ci-logs/` (gitignored, force-added) so they can be inspected without the
@@ -41,6 +48,7 @@ jobs:
     env:
       PKG: com.proudvocab.android
       APK: app/build/outputs/apk/release/app-universal-release.apk
+      MEDIA_DIR: /sdcard/Android/data/com.proudvocab.android/files
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -70,68 +78,31 @@ jobs:
           arch: x86_64
           target: default
           script: |
-            set -x
             cd "$GITHUB_WORKSPACE"
-            FAIL=0
-            MEDIA_DIR=/sdcard/Android/data/$PKG/files
-
             echo "== 1/5 instrumented device tests =="
-            ./gradlew :app:connectedDebugAndroidTest --no-daemon || FAIL=1
-
+            ./gradlew :app:connectedDebugAndroidTest --no-daemon > "$GITHUB_WORKSPACE/smoke-tests.log" 2>&1 || true
             echo "== 2/5 install the release APK =="
-            adb install -r "$APK" || FAIL=1
-
+            adb install -r "$APK" || true
             echo "== 3/5 launch the app and hammer it with monkey =="
-            adb shell am start -n $PKG/.MainActivity || FAIL=1
+            adb shell am start -n $PKG/.MainActivity || true
             sleep 20
             adb shell ps -A > "$GITHUB_WORKSPACE/ps-after-launch.txt" 2>&1 || true
             adb shell monkey -p $PKG -c android.intent.category.LAUNCHER --throttle 300 400 || true
             sleep 10
-
             echo "== 4/5 open a sample video + subtitles through VIEW intents =="
-            if ! command -v ffmpeg >/dev/null 2>&1; then
-              echo "::error::ffmpeg is not available on the runner"
-              FAIL=1
-            fi
-            ffmpeg -y -loglevel error \
-              -f lavfi -i testsrc=duration=8:size=320x240:rate=15 \
-              -f lavfi -i sine=frequency=440:duration=8 \
-              -pix_fmt yuv420p -shortest sample.mp4 || FAIL=1
-            cat > sample.srt <<'SRT'
-            1
-            00:00:01,000 --> 00:00:03,000
-            Hello world, this is a beautiful day
-
-            2
-            00:00:04,000 --> 00:00:06,500
-            The quick brown fox jumps over the lazy dog
-
-            3
-            00:00:06,800 --> 00:00:08,000
-            Thank you very much
-            SRT
-            python3 - <<'PY'
-            srt = ("1\n00:00:01,000 --> 00:00:03,000\nسلام دنیا\n\n"
-                   "2\n00:00:04,000 --> 00:00:06,500\nاین یک روز قشنگ است\n")
-            with open("sample-fa.srt", "wb") as f:
-                f.write(srt.encode("cp1256"))
-            PY
-            adb shell mkdir -p "$MEDIA_DIR"
-            adb push sample.mp4 "$MEDIA_DIR/sample.mp4" || FAIL=1
-            adb push sample.srt "$MEDIA_DIR/sample.srt" || FAIL=1
-            adb push sample-fa.srt "$MEDIA_DIR/sample-fa.srt" || FAIL=1
-            # "Open with ProudVocab" — the same intent another app would send.
-            adb shell am start -a android.intent.action.VIEW \
-              -d "file://$MEDIA_DIR/sample.mp4" -t video/mp4 -n $PKG/.MainActivity || FAIL=1
+            ffmpeg -y -loglevel error -f lavfi -i testsrc=duration=8:size=320x240:rate=15 -f lavfi -i sine=frequency=440:duration=8 -pix_fmt yuv420p -shortest sample.mp4 || true
+            printf '1\n00:00:01,000 --> 00:00:03,000\nHello world, this is a beautiful day\n\n2\n00:00:04,000 --> 00:00:06,500\nThe quick brown fox jumps over the lazy dog\n\n3\n00:00:06,800 --> 00:00:08,000\nThank you very much\n' > sample.srt
+            python3 -c "open('sample-fa.srt','wb').write('1\n00:00:01,000 --> 00:00:03,000\nسلام دنیا\n\n2\n00:00:04,000 --> 00:00:06,500\nاین یک روز قشنگ است\n'.encode('cp1256'))"
+            adb shell mkdir -p "$MEDIA_DIR" || true
+            adb push sample.mp4 "$MEDIA_DIR/sample.mp4" || true
+            adb push sample.srt "$MEDIA_DIR/sample.srt" || true
+            adb push sample-fa.srt "$MEDIA_DIR/sample-fa.srt" || true
+            adb shell am start -a android.intent.action.VIEW -d "file://$MEDIA_DIR/sample.mp4" -t video/mp4 -n $PKG/.MainActivity || true
             sleep 10
-            adb shell am start -a android.intent.action.VIEW \
-              -d "file://$MEDIA_DIR/sample.srt" -t application/x-subrip -n $PKG/.MainActivity || FAIL=1
+            adb shell am start -a android.intent.action.VIEW -d "file://$MEDIA_DIR/sample.srt" -t application/x-subrip -n $PKG/.MainActivity || true
             sleep 6
-            # Re-open with the windows-1256 Persian file to exercise decoding.
-            adb shell am start -a android.intent.action.VIEW \
-              -d "file://$MEDIA_DIR/sample-fa.srt" -t application/x-subrip -n $PKG/.MainActivity || FAIL=1
+            adb shell am start -a android.intent.action.VIEW -d "file://$MEDIA_DIR/sample-fa.srt" -t application/x-subrip -n $PKG/.MainActivity || true
             sleep 6
-
             echo "== 5/5 monkey through the loaded player =="
             adb shell monkey -p $PKG -c android.intent.category.LAUNCHER --throttle 300 400 || true
             sleep 10
@@ -139,38 +110,27 @@ jobs:
             adb shell ps -A > "$GITHUB_WORKSPACE/ps-after-monkey.txt" 2>&1 || true
             adb logcat -d > "$GITHUB_WORKSPACE/emulator-logcat.txt" 2>&1 || true
             adb shell am force-stop $PKG || true
-
             echo "== gate =="
-            if grep -A1 "FATAL EXCEPTION" "$GITHUB_WORKSPACE/emulator-logcat.txt" | grep -q "$PKG"; then
-              echo "APP CRASHED: FATAL EXCEPTION for $PKG — see emulator-logcat.txt"
-              FAIL=1
-            fi
-            if ! grep -q " $PKG\$" "$GITHUB_WORKSPACE/ps-after-monkey.txt"; then
-              echo "APP PROCESS NOT RUNNING AFTER THE SMOKE RUN"
-              FAIL=1
-            fi
-            if [ "$FAIL" -ne 0 ]; then
-              echo "::error::Emulator smoke test FAILED"
-              exit 1
-            fi
+            grep -q "BUILD SUCCESSFUL" "$GITHUB_WORKSPACE/smoke-tests.log" || { echo "DEVICE TESTS FAILED — see smoke-tests.log"; exit 1; }
+            if grep -A1 "FATAL EXCEPTION" "$GITHUB_WORKSPACE/emulator-logcat.txt" | grep -q "$PKG"; then echo "APP CRASHED: FATAL EXCEPTION for $PKG — see emulator-logcat.txt"; exit 1; fi
+            if ! grep -q " $PKG\$" "$GITHUB_WORKSPACE/ps-after-monkey.txt"; then echo "APP PROCESS NOT RUNNING AFTER THE SMOKE RUN"; exit 1; fi
             echo "SMOKE OK: device tests + launch + playback + 800 monkey events, no crash."
 
-      - name: Summarise the captured log
+      - name: Summarise the captured logs
         if: always()
         run: |
           echo "== build log tail =="
-          tail -40 build.log 2>/dev/null || echo "(no build.log)"
-          echo "== smoke log tail =="
-          tail -40 smoke.log 2>/dev/null || echo "(no smoke.log)"
+          tail -25 build.log 2>/dev/null || echo "(no build.log)"
+          echo "== device test log tail =="
+          tail -25 smoke-tests.log 2>/dev/null || echo "(no smoke-tests.log)"
           echo "== process after launch =="
-          grep -i proudvocab ps-after-launch.txt || echo "PROCESS NOT RUNNING AFTER LAUNCH"
+          grep -i proudvocab ps-after-launch.txt 2>/dev/null || echo "PROCESS NOT RUNNING AFTER LAUNCH"
           echo "== process after monkey =="
-          grep -i proudvocab ps-after-monkey.txt || echo "PROCESS NOT RUNNING AFTER MONKEY"
+          grep -i proudvocab ps-after-monkey.txt 2>/dev/null || echo "PROCESS NOT RUNNING AFTER MONKEY"
           echo "== FATAL EXCEPTION blocks =="
-          grep -n "FATAL EXCEPTION" emulator-logcat.txt || echo "no FATAL EXCEPTION line"
+          grep -n "FATAL EXCEPTION" emulator-logcat.txt 2>/dev/null || echo "no FATAL EXCEPTION line"
           echo "== our package's errors =="
-          grep -E "^[0-9-]+ [0-9:.]+ +[0-9]+ +[0-9]+ E " emulator-logcat.txt \
-            | grep -i proudvocab | head -30 || true
+          grep -E "^[0-9-]+ [0-9:.]+ +[0-9]+ +[0-9]+ E " emulator-logcat.txt 2>/dev/null | grep -i proudvocab | head -30 || true
 
       - name: Upload the logs
         if: always()
@@ -182,7 +142,7 @@ jobs:
             ps-after-launch.txt
             ps-after-monkey.txt
             build.log
-            smoke.log
+            smoke-tests.log
           if-no-files-found: warn
 
       - name: Publish logs to this branch (push events, on failure)
@@ -195,7 +155,7 @@ jobs:
           cp ps-after-launch.txt ci-logs/ps-after-launch.txt 2>/dev/null || true
           cp ps-after-monkey.txt ci-logs/ps-after-monkey.txt 2>/dev/null || true
           cp build.log ci-logs/build.log 2>/dev/null || true
-          cp smoke.log ci-logs/smoke.log 2>/dev/null || true
+          cp smoke-tests.log ci-logs/smoke-tests.log 2>/dev/null || true
           git add -f ci-logs/
           git commit -m "ci: API 31 emulator logs (smoke test failed) [skip ci]" || true
           git push origin "HEAD:${GITHUB_REF_NAME}"

@@ -70,16 +70,20 @@ jobs:
       - name: Compile instrumentation tests
         run: ./gradlew :app:assembleDebugAndroidTest --no-daemon --stacktrace > ci-artifacts/${{ matrix.abi }}/build-androidtest.log 2>&1
 
-      # The raw job log is not always downloadable, so surface the actual
-      # compiler/Gradle error lines as annotations on the failed step.
+      # The raw job log is not always downloadable, so publish the tail of the
+      # failing Gradle log as annotations on the failed step.
       - name: Report build errors
         if: failure()
         run: |
           for f in ci-artifacts/${{ matrix.abi }}/build-*.log; do
             [ -f "$f" ] || continue
-            echo "== $f"
-            grep -E "^e: |What went wrong|Execution failed|Could not |> |FAILURE" -A3 "$f" | head -60 | while IFS= read -r line; do
-              echo "::error title=$(basename "$f")::$(printf '%s' "$line" | cut -c1-900)"
+            echo "== $f ($(wc -l < "$f") lines)"
+            {
+              grep -n -A12 -E "What went wrong|Caused by|Exception is" "$f" | head -90
+              echo "----- tail -----"
+              tail -n 120 "$f"
+            } | while IFS= read -r line; do
+              printf '::notice title=%s::%s\n' "$(basename "$f")" "$(printf '%s' "$line" | cut -c1-700)"
             done
           done
 

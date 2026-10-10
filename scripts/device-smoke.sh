@@ -25,7 +25,8 @@ ABI="${ABI:?ABI is required}"
 PV_LOCALE="${PV_LOCALE:-}"
 PREVIOUS_RELEASE="${PREVIOUS_RELEASE:-v1.0.3}"
 ROOT="$(pwd)"
-OUT="$ROOT/ci-artifacts/$ABI"
+RUN_TAG="${RUN_TAG:-$ABI}"
+OUT="$ROOT/ci-artifacts/$RUN_TAG"
 MEDIA_DIR="/sdcard/Download/pv-smoke"
 APK_DIR="${APK_DIR:-apks}"   # built once by the `build` job and downloaded here
 mkdir -p "$OUT/screens" "$OUT/previous"
@@ -199,6 +200,12 @@ run_device_tests() {
     pass "instrumented tests passed (${PV_LOCALE:-device default} UI): $(grep '^OK (' "$log" | head -n1)"
   else
     fail "instrumented tests failed (${PV_LOCALE:-device default} UI) — see instrumented-tests.txt and logcat-tests.txt"
+    # Surface the failing lines in the check annotations as well, so the
+    # cause is visible without downloading the artifact.
+    grep -E "FAILURES|Tests run|Failures:|INSTRUMENTATION_FAILED|Process crashed|Error|Exception|at com\.proudvocab|Failed|expected" "$log" \
+      | head -n 40 | cut -c1-400 | while IFS= read -r line; do echo "::error title=instrumented-tests::$line"; done
+    grep -E "FATAL EXCEPTION|Process: com\.proudvocab" -A4 "$OUT/logcat-tests.txt" 2>/dev/null \
+      | head -n 30 | cut -c1-400 | while IFS= read -r line; do echo "::error title=logcat::$line"; done
     return 1
   fi
 }

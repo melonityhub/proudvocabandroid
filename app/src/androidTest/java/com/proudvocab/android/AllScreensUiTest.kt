@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -97,15 +98,26 @@ class AllScreensUiTest {
         val backLabel = text(R.string.back)
         for (section in sections) {
             val title = text(section)
+            // Later rows can sit below the fold on a small screen; scroll the
+            // LazyColumn to the row first, otherwise the tap lands off-target.
             composeRule.onAllNodes(hasText(title) and hasClickAction())
                 .onFirst()
+                .performScrollTo()
                 .performClick()
             // The page change is an AnimatedContent transition; waitForIdle()
             // does not wait for it, so poll for the arrow instead.
-            composeRule.waitUntil(timeoutMillis = 5_000) { backArrowShown(backLabel) }
-            assertTrue("no back arrow on the '$title' page", backArrowShown(backLabel))
+            val opened = runCatching {
+                composeRule.waitUntil(timeoutMillis = 5_000) { backArrowShown(backLabel) }
+            }.isSuccess
+            check(opened) {
+                "tapping '$title' did not open its page. Tree: " +
+                    composeRule.onRoot().printToString().take(6000)
+            }
             goBack()
-            composeRule.waitUntil(timeoutMillis = 5_000) { !backArrowShown(backLabel) }
+            val closed = runCatching {
+                composeRule.waitUntil(timeoutMillis = 5_000) { !backArrowShown(backLabel) }
+            }.isSuccess
+            check(closed) { "back did not return from '$title' to the settings list" }
             assertTrue(
                 "settings list did not come back after '$title'",
                 composeRule.onAllNodes(hasText(title)).fetchSemanticsNodes().isNotEmpty()

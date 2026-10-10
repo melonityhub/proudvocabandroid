@@ -15,7 +15,10 @@ import subprocess
 import sys
 
 MAX_TEXT = 60000
-PER_FILE = 20000
+# Most useful files first; each gets a bounded tail so nothing crowds them out.
+PRIORITY = ["summary.txt", "diagnostics-tests.txt", "instrumented-tests.txt", "build.log"]
+PER_FILE = {"instrumented-tests.txt": 8000, "diagnostics-tests.txt": 20000, "build.log": 25000}
+DEFAULT_PER_FILE = 3000
 
 
 def main() -> int:
@@ -23,15 +26,16 @@ def main() -> int:
     parts = []
     base = pathlib.Path(out_dir)
     if base.is_dir():
-        for path in sorted(base.rglob("*")):
-            if not path.is_file() or path.suffix not in {".txt", ".log"}:
-                continue
+        files = [p for p in base.rglob("*") if p.is_file() and p.suffix in {".txt", ".log"}]
+        files.sort(key=lambda p: (PRIORITY.index(p.name) if p.name in PRIORITY else len(PRIORITY), p.name))
+        for path in files:
             text = path.read_text(encoding="utf-8", errors="replace")
-            parts.append(f"===== {path.name} ({len(text)} chars, last {PER_FILE}) =====\n"
-                         + text[-PER_FILE:])
+            limit = PER_FILE.get(path.name, DEFAULT_PER_FILE)
+            parts.append(f"===== {path.name} ({len(text)} chars, last {min(limit, len(text))}) =====\n"
+                         + text[-limit:])
     if not parts:
         parts.append("no diagnostic files were produced in " + out_dir)
-    body = "\n\n".join(parts)[-MAX_TEXT:]
+    body = "\n\n".join(parts)[:MAX_TEXT]
     payload = {
         "name": name,
         "head_sha": os.environ["HEAD_SHA"],

@@ -208,7 +208,7 @@ run_device_tests() {
       tail -n 120 "$log"
       echo
       echo "== logcat (ProudVocab, ActivityManager, errors; tail) =="
-      grep -E "proudvocab|ActivityManager|ActivityTaskManager|ANR|FATAL|AndroidRuntime|E/|Lifecycle|Choreographer|System.err" \
+      grep -E "proudvocab|ActivityManager|ActivityTaskManager|ANR|FATAL|AndroidRuntime| E |Lifecycle|Choreographer|System.err|finish" \
         "$OUT/logcat-tests.txt" 2>/dev/null | tail -n 150
       echo
       echo "== device state =="

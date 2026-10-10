@@ -6,8 +6,6 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
@@ -97,13 +95,10 @@ class AllScreensUiTest {
 
     /** Everything a failing run needs to see: content descriptions and the tree. */
     private fun screenSummary(): String = runCatching {
-        val descriptions = composeRule.onAllNodes(
-            SemanticsMatcher.keyIsDefined(SemanticsProperties.ContentDescription)
-        ).fetchSemanticsNodes().map { node ->
-            node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString("|")
-        }
-        "contentDescriptions=$descriptions tree=" +
-            composeRule.onRoot().printToString().take(3000)
+        val tree = composeRule.onRoot().printToString()
+        val descriptions = tree.lines().filter { it.contains("ContentDescription") }
+        "contentDescriptions=${descriptions.joinToString(" ; ").take(2000)} " +
+            "tree=${tree.take(3000)}"
     }.getOrElse { "(no compose hierarchy: ${it.message})" }
 
     private fun backArrowShown(label: String): Boolean =

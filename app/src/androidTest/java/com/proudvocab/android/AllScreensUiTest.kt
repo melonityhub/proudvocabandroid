@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
@@ -58,7 +59,14 @@ class AllScreensUiTest {
     private fun text(resId: Int): String = composeRule.activity.getString(resId)
 
     private fun openTab(route: String) {
-        composeRule.onNodeWithTag("tab_$route").performClick()
+        val tag = "tab_$route"
+        // The root draws nothing until DataStore has produced the settings
+        // (MainActivity/ProudVocabRoot), and waitForIdle() does not wait for
+        // that, so the first tab can appear a moment after launch.
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag(tag).performClick()
         composeRule.waitForIdle()
     }
 

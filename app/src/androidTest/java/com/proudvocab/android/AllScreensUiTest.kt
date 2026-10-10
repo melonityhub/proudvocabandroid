@@ -6,6 +6,8 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
@@ -65,11 +67,14 @@ class AllScreensUiTest {
         // that, so the first tab can appear a moment after launch.
         // Right after launch there may be no compose hierarchy attached yet
         // (fetchSemanticsNodes throws), which also counts as "not ready".
-        composeRule.waitUntil(timeoutMillis = 20_000) {
-            runCatching {
-                composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
-            }.getOrDefault(false)
-        }
+        val appeared = runCatching {
+            composeRule.waitUntil(timeoutMillis = 20_000) {
+                runCatching {
+                    composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+                }.getOrDefault(false)
+            }
+        }.isSuccess
+        check(appeared) { "tab '$tag' never appeared. ${screenSummary()}" }
         composeRule.onNodeWithTag(tag).performClick()
         composeRule.waitForIdle()
     }
@@ -89,6 +94,17 @@ class AllScreensUiTest {
         }
         composeRule.onNodeWithTag("tab_watch").assertExists()
     }
+
+    /** Everything a failing run needs to see: content descriptions and the tree. */
+    private fun screenSummary(): String = runCatching {
+        val descriptions = composeRule.onAllNodes(
+            SemanticsMatcher.keyIsDefined(SemanticsProperties.ContentDescription)
+        ).fetchSemanticsNodes().map { node ->
+            node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString("|")
+        }
+        "contentDescriptions=$descriptions tree=" +
+            composeRule.onRoot().printToString().take(3000)
+    }.getOrElse { "(no compose hierarchy: ${it.message})" }
 
     private fun backArrowShown(label: String): Boolean =
         composeRule.onAllNodes(hasContentDescription(label)).fetchSemanticsNodes().isNotEmpty()
@@ -124,8 +140,8 @@ class AllScreensUiTest {
                 composeRule.waitUntil(timeoutMillis = 5_000) { backArrowShown(backLabel) }
             }.isSuccess
             check(opened) {
-                "tapping '$title' did not open its page. Tree: " +
-                    composeRule.onRoot().printToString().take(6000)
+                "tapping '$title' did not open its page (back label '$backLabel'). " +
+                    screenSummary()
             }
             goBack()
             val closed = runCatching {

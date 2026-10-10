@@ -200,20 +200,28 @@ run_device_tests() {
     pass "instrumented tests passed (${PV_LOCALE:-device default} UI): $(grep '^OK (' "$log" | head -n1)"
   else
     fail "instrumented tests failed (${PV_LOCALE:-device default} UI) — see instrumented-tests.txt and logcat-tests.txt"
-    # Surface the failing lines in the check annotations as well, so the
-    # cause is visible without downloading the artifact.
-    grep -E "FAILURES|Tests run|Failures:|INSTRUMENTATION_FAILED|Process crashed|Error|Exception|at com\.proudvocab|Failed|expected" "$log" \
-      | head -n 40 | cut -c1-400 | while IFS= read -r line; do echo "::error title=instrumented-tests::$line"; done
-    grep -E "FATAL EXCEPTION|Process: com\.proudvocab|ANR in|am_anr|Choreographer|Skipped [0-9]+ frames|ActivityManager|ActivityThread|Lifecycle|W ProudVocab|E ProudVocab|Timeout|timed out" "$OUT/logcat-tests.txt" 2>/dev/null \
-      | tail -n 60 | cut -c1-400 | while IFS= read -r line; do echo "::error title=logcat::$line"; done
+    # GitHub caps error annotations per step, so publish ONE annotation that
+    # carries the whole diagnostic block (newlines encoded).
+    local diag="$OUT/diagnostics-tests.txt"
     {
-      echo "--- activity state ---"
-      adb shell dumpsys activity activities 2>/dev/null | tr -d '\r' | grep -A4 "proudvocab" | head -n 30
-      echo "--- window focus ---"
+      echo "== instrumented-tests.txt (tail) =="
+      tail -n 120 "$log"
+      echo
+      echo "== logcat (ProudVocab, ActivityManager, errors; tail) =="
+      grep -E "proudvocab|ActivityManager|ActivityTaskManager|ANR|FATAL|AndroidRuntime|E/|Lifecycle|Choreographer|System.err" \
+        "$OUT/logcat-tests.txt" 2>/dev/null | tail -n 150
+      echo
+      echo "== device state =="
+      adb shell dumpsys activity activities 2>/dev/null | tr -d '\r' | grep -B2 -A6 "proudvocab" | head -n 60
       adb shell dumpsys window 2>/dev/null | tr -d '\r' | grep -E "mCurrentFocus|mFocusedApp" | head -n 4
-      echo "--- processes ---"
       adb shell ps -A 2>/dev/null | tr -d '\r' | grep -i "proudvocab\|instrument" | head -n 6
-    } | cut -c1-400 | while IFS= read -r line; do echo "::error title=device-state::$line"; done
+    } > "$diag" 2>&1
+    python3 - "$diag" <<'PY'
+import sys
+data = open(sys.argv[1], encoding="utf-8", errors="replace").read()[-45000:]
+data = data.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+print("::error title=instrumented-tests diagnostics::" + data)
+PY
     return 1
   fi
 }

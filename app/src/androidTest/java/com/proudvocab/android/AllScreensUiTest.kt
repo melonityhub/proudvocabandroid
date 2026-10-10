@@ -63,8 +63,12 @@ class AllScreensUiTest {
         // The root draws nothing until DataStore has produced the settings
         // (MainActivity/ProudVocabRoot), and waitForIdle() does not wait for
         // that, so the first tab can appear a moment after launch.
-        composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        // Right after launch there may be no compose hierarchy attached yet
+        // (fetchSemanticsNodes throws), which also counts as "not ready".
+        composeRule.waitUntil(timeoutMillis = 20_000) {
+            runCatching {
+                composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+            }.getOrDefault(false)
         }
         composeRule.onNodeWithTag(tag).performClick()
         composeRule.waitForIdle()

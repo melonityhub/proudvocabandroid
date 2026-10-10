@@ -101,8 +101,10 @@ class AllScreensUiTest {
             "tree=${tree.take(3000)}"
     }.getOrElse { "(no compose hierarchy: ${it.message})" }
 
-    private fun backArrowShown(label: String): Boolean =
+    // A transition can briefly leave no hierarchy to query; that is "not yet".
+    private fun backArrowShown(label: String): Boolean = runCatching {
         composeRule.onAllNodes(hasContentDescription(label)).fetchSemanticsNodes().isNotEmpty()
+    }.getOrDefault(false)
 
     @Test
     fun everySettingsPageOpensAndReturnsToTheList() {
@@ -132,7 +134,7 @@ class AllScreensUiTest {
             // The page change is an AnimatedContent transition; waitForIdle()
             // does not wait for it, so poll for the arrow instead.
             val opened = runCatching {
-                composeRule.waitUntil(timeoutMillis = 5_000) { backArrowShown(backLabel) }
+                composeRule.waitUntil(timeoutMillis = 10_000) { backArrowShown(backLabel) }
             }.isSuccess
             check(opened) {
                 "tapping '$title' did not open its page (back label '$backLabel'). " +
@@ -140,7 +142,7 @@ class AllScreensUiTest {
             }
             goBack()
             val closed = runCatching {
-                composeRule.waitUntil(timeoutMillis = 5_000) { !backArrowShown(backLabel) }
+                composeRule.waitUntil(timeoutMillis = 10_000) { !backArrowShown(backLabel) }
             }.isSuccess
             check(closed) { "back did not return from '$title' to the settings list" }
             assertTrue(

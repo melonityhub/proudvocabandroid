@@ -204,8 +204,16 @@ run_device_tests() {
     # cause is visible without downloading the artifact.
     grep -E "FAILURES|Tests run|Failures:|INSTRUMENTATION_FAILED|Process crashed|Error|Exception|at com\.proudvocab|Failed|expected" "$log" \
       | head -n 40 | cut -c1-400 | while IFS= read -r line; do echo "::error title=instrumented-tests::$line"; done
-    grep -E "FATAL EXCEPTION|Process: com\.proudvocab" -A4 "$OUT/logcat-tests.txt" 2>/dev/null \
-      | head -n 30 | cut -c1-400 | while IFS= read -r line; do echo "::error title=logcat::$line"; done
+    grep -E "FATAL EXCEPTION|Process: com\.proudvocab|ANR in|am_anr|Choreographer|Skipped [0-9]+ frames|ActivityManager|ActivityThread|Lifecycle|W ProudVocab|E ProudVocab|Timeout|timed out" "$OUT/logcat-tests.txt" 2>/dev/null \
+      | tail -n 60 | cut -c1-400 | while IFS= read -r line; do echo "::error title=logcat::$line"; done
+    {
+      echo "--- activity state ---"
+      adb shell dumpsys activity activities 2>/dev/null | tr -d '\r' | grep -A4 "proudvocab" | head -n 30
+      echo "--- window focus ---"
+      adb shell dumpsys window 2>/dev/null | tr -d '\r' | grep -E "mCurrentFocus|mFocusedApp" | head -n 4
+      echo "--- processes ---"
+      adb shell ps -A 2>/dev/null | tr -d '\r' | grep -i "proudvocab\|instrument" | head -n 6
+    } | cut -c1-400 | while IFS= read -r line; do echo "::error title=device-state::$line"; done
     return 1
   fi
 }

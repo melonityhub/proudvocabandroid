@@ -26,6 +26,9 @@ jobs:
     name: Build APKs for device tests
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +64,14 @@ jobs:
             printf '::notice title=build.log::%s\n' "$(printf '%s' "$line" | cut -c1-700)"
           done
 
+      - name: Publish build diagnostics
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.sha }}
+        run: python3 scripts/publish-diagnostics.py ci-artifacts/build "build diagnostics"
+
       - name: Collect APKs
         run: |
           set -euo pipefail
@@ -87,6 +98,9 @@ jobs:
     needs: build
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
+    permissions:
+      contents: read
+      checks: write
     strategy:
       fail-fast: false
       matrix:
@@ -171,6 +185,14 @@ jobs:
           heap-size: 2048M
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash scripts/device-smoke.sh
+
+      - name: Publish device diagnostics
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.sha }}
+        run: python3 scripts/publish-diagnostics.py ci-artifacts/${{ matrix.tag }} "device diagnostics (${{ matrix.tag }})"
 
       - name: Upload device logs, screenshots and test output
         if: always()

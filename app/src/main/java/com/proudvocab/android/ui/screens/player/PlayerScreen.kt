@@ -201,8 +201,11 @@ fun PlayerScreen(
                     name.endsWith(it, ignoreCase = true)
                 }
             if (isSubtitle) vm.loadSubtitle(context, uri) else vm.openVideo(context, uri)
+            // Only a VIEW we actually acted on is consumed. Clearing the activity
+            // intent on every plain launch (MAIN) made the activity's launch
+            // intent unrecognisable to the framework's lifecycle tracking.
+            onIncomingIntentHandled()
         }
-        onIncomingIntentHandled()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

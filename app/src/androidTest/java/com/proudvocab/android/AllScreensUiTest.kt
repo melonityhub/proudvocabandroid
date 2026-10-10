@@ -75,6 +75,9 @@ class AllScreensUiTest {
         composeRule.onNodeWithTag("tab_watch").assertExists()
     }
 
+    private fun backArrowShown(label: String): Boolean =
+        composeRule.onAllNodes(hasContentDescription(label)).fetchSemanticsNodes().isNotEmpty()
+
     @Test
     fun everySettingsPageOpensAndReturnsToTheList() {
         openTab("settings")
@@ -97,10 +100,12 @@ class AllScreensUiTest {
             composeRule.onAllNodes(hasText(title) and hasClickAction())
                 .onFirst()
                 .performClick()
-            composeRule.waitForIdle()
-            // A sub-page shows the back arrow; the root list does not.
-            composeRule.onNode(hasContentDescription(backLabel)).assertExists()
+            // The page change is an AnimatedContent transition; waitForIdle()
+            // does not wait for it, so poll for the arrow instead.
+            composeRule.waitUntil(timeoutMillis = 5_000) { backArrowShown(backLabel) }
+            assertTrue("no back arrow on the '$title' page", backArrowShown(backLabel))
             goBack()
+            composeRule.waitUntil(timeoutMillis = 5_000) { !backArrowShown(backLabel) }
             assertTrue(
                 "settings list did not come back after '$title'",
                 composeRule.onAllNodes(hasText(title)).fetchSemanticsNodes().isNotEmpty()
